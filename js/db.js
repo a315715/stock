@@ -5,7 +5,7 @@
 // 工具啟動時自動比對，版本不符就清除舊資料載入新預設值
 // 使用者不需要手動清除 localStorage
 
-const DATA_VERSION = 4; // 每次更新 defaultData.js 時 +1
+const DATA_VERSION = 5; // 每次更新 defaultData.js 時 +1
 const VERSION_KEY  = 'tstock_version';
 const DB_KEY       = 'tstock_v2';
 
