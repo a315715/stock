@@ -284,6 +284,7 @@
 
 <script src="js/defaultData.js"></script>
 <script src="js/db.js"></script>
+<script src="js/priceService.js"></script>
 <script>
 // ══ STATE ════════════════════════════════════════════
 let DB={};
@@ -597,73 +598,60 @@ function renderDivTab(s){
 }
 
 // ══ FETCH PRICE ═══════════════════════════════════════
-async function fetchSinglePrice(ticker){
-  const urls=[
-    `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}.TW?interval=1d&range=1d`,
-    `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}.TW?interval=1d&range=1d`,
-  ];
-  for(const url of urls){
-    try{const res=await fetch(url,{signal:AbortSignal.timeout(8000)});
-      const data=await res.json();
-      const meta=data?.chart?.result?.[0]?.meta;
-      const price=meta?.regularMarketPrice||meta?.previousClose;
-      if(price)return price;
-    }catch(e){continue;}
-  }
-  return null;
-}
-
 async function fetchAllPrices(){
   const btn=document.getElementById('topBtnRefresh');
-  const tickers=Object.keys(DB.stocks);
   btn.textContent='更新中...';btn.disabled=true;
-  let okCount=0,failCount=0;
-  const now=new Date();
-  const t=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  clearPriceCache(); // 強制重新讀取最新 prices.json
 
-  for(const ticker of tickers){
-    const price=await fetchSinglePrice(ticker);
-    const s=DB.stocks[ticker];
-    if(price){s.lastPrice=price;s.lastPriceTime=t+' 更新';okCount++;}
-    else failCount++;
+  const data=await loadPrices();
+  if(!data||!data.prices){
+    btn.textContent='↻ 全部更新';btn.disabled=false;
+    alert('無法讀取股價資料，請稍後再試。');
+    return;
   }
+
+  const updatedTime=await getPricesUpdatedTime()||'—';
+  let okCount=0,failCount=0;
+
+  Object.values(DB.stocks).forEach(s=>{
+    const info=data.prices[s.ticker];
+    if(info&&info.price){
+      s.lastPrice=info.price;
+      s.lastPriceTime=updatedTime+' 更新';
+      okCount++;
+    } else {
+      failCount++;
+    }
+  });
+
   saveDB();
   renderOverview();
   btn.textContent='↻ 全部更新';btn.disabled=false;
-  if(failCount>0)alert(`更新完成：${okCount} 支成功，${failCount} 支失敗（將沿用先前價格）。`);
+  if(failCount>0&&okCount===0){
+    alert('股價資料讀取失敗，可能尚未更新或非交易時間。');
+  }
 }
 
 async function fetchPrice(){
   const s=getStock(currentTicker);
   const btn=document.getElementById('btnFetch');
   btn.textContent='抓取中...';btn.disabled=true;
-  document.getElementById('fTxt').textContent='連線中...';
-  const urls=[
-    `https://query1.finance.yahoo.com/v8/finance/chart/${s.ticker}.TW?interval=1d&range=1d`,
-    `https://query2.finance.yahoo.com/v8/finance/chart/${s.ticker}.TW?interval=1d&range=1d`,
-  ];
-  let price=null;
-  for(const url of urls){
-    try{const res=await fetch(url,{signal:AbortSignal.timeout(8000)});
-      const data=await res.json();
-      const meta=data?.chart?.result?.[0]?.meta;
-      price=meta?.regularMarketPrice||meta?.previousClose;
-      if(price)break;
-    }catch(e){continue;}
-  }
-  if(price){
+  document.getElementById('fTxt').textContent='讀取中...';
+
+  const info=await getPrice(s.ticker);
+  if(info&&info.price){
+    const price=info.price;
     document.getElementById('priceInp').value=price;
-    const now=new Date();
-    const t=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+    const t=await getPricesUpdatedTime()||'—';
     s.lastPrice=price;s.lastPriceTime=t+' 更新';saveDB();
     document.getElementById('fDot').className='dot live';
-    document.getElementById('fTxt').textContent='即時';
+    document.getElementById('fTxt').textContent='已更新';
     document.getElementById('fTime').textContent=t+' 更新';
     updateDetail();
   } else {
     document.getElementById('fDot').className='dot';
     document.getElementById('fTxt').textContent=s.lastPrice?'用上次記錄':'取得失敗';
-    if(!s.lastPrice)alert('無法取得即時股價，請手動輸入。');
+    if(!s.lastPrice)alert('目前無股價資料，請稍後再試或手動輸入。');
   }
   btn.textContent='↻ 即時股價';btn.disabled=false;
 }
