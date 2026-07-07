@@ -2,33 +2,54 @@ name: 更新台股股價
 
 on:
   schedule:
-    # 台灣時間 09:05~13:05，每小時一次（UTC 時間 01:05~05:05）
+    # 台灣時間 09:05、10:05、11:05、12:05、13:05（UTC+8）
     - cron: '5 1,2,3,4,5 * * 1-5'
-  workflow_dispatch: # 允許手動觸發
+  workflow_dispatch:
+
+# 避免同時間執行多個更新工作
+concurrency:
+  group: update-prices
+  cancel-in-progress: false
 
 jobs:
   fetch-prices:
     runs-on: ubuntu-latest
+
     permissions:
-      contents: write  # 允許 commit 回 repo
+      contents: write
 
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
-      - name: 抓取股價
+      - name: Fetch Taiwan stock prices
         run: python scripts/fetch_prices.py
 
       - name: Commit & Push prices.json
+        shell: bash
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add data/prices.json
-          # 只有檔案有變更才 commit
-          git diff --staged --quiet || git commit -m "chore: update prices $(date -u +'%Y-%m-%d %H:%M UTC')"
-          git push
+
+          # 沒有任何變更就直接結束
+          if git diff --cached --quiet; then
+            echo "No changes detected."
+            exit 0
+          fi
+
+          git commit -m "chore: update prices $(date -u +'%Y-%m-%d %H:%M UTC')"
+
+          # 同步遠端最新版本，避免 fetch first
+          git pull --rebase origin main
+
+          # Push
+          git push origin HEAD:main
