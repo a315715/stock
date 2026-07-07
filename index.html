@@ -330,7 +330,7 @@ function openDetail(ticker){
   currentTicker=ticker;
   const s=getStock(ticker);
   document.getElementById('dName').textContent=s.name;
-  document.getElementById('dTicker').textContent=s.exchange+' · '+s.ticker;
+  document.getElementById('dTicker').textContent=s.exchange+' · '+s.ticker+(s.calcMode==='tx' ? '  🔄 交易計算模式' : '  📌 手動總表模式');
   document.getElementById('topTitle').textContent=s.name;
   document.getElementById('topBtn').textContent='✎ 編輯';
   document.getElementById('topBtn').onclick=()=>openEditStock(ticker);
@@ -756,7 +756,10 @@ function saveStock(){
   }
 
   if(!DB.stocks[ticker]){
-    DB.stocks[ticker]={ticker,name,exchange:'TSE',shares,avgCost,totalCost,buyAvg,brokers:[],transactions:[],dividends:[],lastPrice:null,lastPriceTime:null};
+    // minimal（快速新增，數字待交易記錄累積）→ 交易計算模式
+    // quick（直接輸入目前持股數/成本）→ 手動總表模式，之後新增交易明細不會自動覆蓋這裡的數字
+    const calcMode = (stockModalMode==='minimal') ? 'tx' : 'manual';
+    DB.stocks[ticker]={ticker,name,exchange:'TSE',shares,avgCost,totalCost,buyAvg,calcMode,brokers:[],transactions:[],dividends:[],lastPrice:null,lastPriceTime:null};
   } else {
     Object.assign(DB.stocks[ticker],{name,shares,avgCost,totalCost,buyAvg});
   }
@@ -797,8 +800,9 @@ function onTxTypeChange(){
   document.getElementById('txDivRow').style.display=isDivStock?'block':'none';
 }
 // 依交易明細（買/賣/配股）重新計算持股數與加權平均成本。
-// 僅在該股票「有交易明細」時才會覆蓋 shares/avgCost/totalCost；
-// 若 transactions 為空（僅有快照資料的股票），則不會被此函式影響。
+// 呼叫方（saveTx）只在股票為 calcMode==='tx'（交易計算模式）時才會呼叫本函式；
+// calcMode==='manual'（手動總表模式，預設）的股票，持股數/成本以手動輸入的總表數字為準，
+// 新增交易明細只是記錄用途，不會觸發本函式、不會被歸零覆蓋。
 function recalcFromTransactions(s){
   const txs=(s.transactions||[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
   if(!txs.length)return; // 沒有交易明細，維持原本快照數字不動
@@ -831,16 +835,38 @@ function saveTx(){
   if(!ticker||!date){alert('請填寫股票與日期');return;}
   const s=getStock(ticker);
   s.transactions=s.transactions||[];
+
+  let tx;
   if(type==='配息'||type==='配股'){
     const amt=parseFloat(document.getElementById('fTxAmt').value)||0;
-    s.transactions.push({date:date.replace(/-/g,'/'),type,shares:type==='配股'?amt:0,amount:type==='配息'?amt:0,price:null,note});
+    tx={date:date.replace(/-/g,'/'),type,shares:type==='配股'?amt:0,amount:type==='配息'?amt:0,price:null,note};
   } else {
     const shares=parseFloat(document.getElementById('fTxShares').value);
     const price=parseFloat(document.getElementById('fTxPrice').value);
     if(!shares||!price){alert('請填寫股數與價格');return;}
-    s.transactions.push({date:date.replace(/-/g,'/'),type,shares,price,amount:Math.round(price*shares),note});
+    tx={date:date.replace(/-/g,'/'),type,shares,price,amount:Math.round(price*shares),note};
   }
-  recalcFromTransactions(s);
+  s.transactions.push(tx);
+
+  if(s.calcMode==='tx'){
+    // 已是「交易計算模式」：持股數/成本一律依交易明細重新計算
+    recalcFromTransactions(s);
+  } else {
+    // 目前是「手動總表模式」(持股數/成本為手動輸入)。
+    // 新增交易明細不會自動覆蓋手動數字，除非使用者明確確認切換模式，
+    // 避免像「交易明細不完整時，重新計算把手動總表數字歸零」的情況。
+    const proceed=confirm(
+      `「${s.name}」目前是【手動總表模式】，持股數/成本是手動輸入的總表數字。\n\n`+
+      `是否切換為【交易計算模式】？\n`+
+      `切換後，持股數與成本會完全依「交易明細」從零重新計算，請確認之後（含歷史）所有交易都已完整記錄，否則數字會不準確。\n\n`+
+      `按「確定」＝切換並重新計算\n按「取消」＝這筆交易僅作記錄保留，目前持股數字不變`
+    );
+    if(proceed){
+      s.calcMode='tx';
+      recalcFromTransactions(s);
+    }
+  }
+
   saveDB();closeModal('modalTx');
   if(currentTicker===ticker){renderTxTable(s);updateDetail();}
   renderRecentTx();
