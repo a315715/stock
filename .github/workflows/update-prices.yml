@@ -2,14 +2,15 @@ name: 更新台股股價
 
 on:
   schedule:
-    - cron: '0,15,30,45 1,2,3,4,5 * * 1-5'
-  workflow_dispatch:
+    # 台灣時間 09:05~13:05，每小時一次（UTC 時間 01:05~05:05）
+    - cron: '5 1,2,3,4,5 * * 1-5'
+  workflow_dispatch: # 允許手動觸發
 
 jobs:
   fetch-prices:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write  # 允許 commit 回 repo
 
     steps:
       - name: Checkout repo
@@ -28,5 +29,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/prices.json
+          # 只有檔案有變更才 commit
           git diff --staged --quiet || git commit -m "chore: update prices $(date -u +'%Y-%m-%d %H:%M UTC')"
           git push
