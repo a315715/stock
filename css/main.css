@@ -46,7 +46,7 @@ body{color:var(--text);font-family:-apple-system,"SF Pro Display","Helvetica Neu
 .list-hd-r{font-size:12px;color:var(--hint);}
 
 /* stock card — Stockify style */
-.scard{display:flex;align-items:center;padding:13px 16px;border-bottom:1px solid var(--bd);cursor:pointer;-webkit-tap-highlight-color:transparent;gap:12px;}
+.scard{display:flex;flex-wrap:wrap;align-items:center;padding:13px 16px;border-bottom:1px solid var(--bd);cursor:pointer;-webkit-tap-highlight-color:transparent;gap:12px;}
 .scard:active{background:var(--bg2);}
 .scard-left{flex:1;min-width:0;}
 .scard-name{font-size:18px;font-weight:600;color:var(--text);}
@@ -66,6 +66,17 @@ body{color:var(--text);font-family:-apple-system,"SF Pro Display","Helvetica Neu
 .detail-title{flex:1;}
 .detail-name{font-size:17px;font-weight:700;}
 .detail-ticker{font-size:12px;color:var(--hint);}
+.detail-hint{font-size:11px;color:var(--muted);margin-top:3px;}
+.detail-hint.calc-warning{color:var(--red);font-weight:600;}
+.scard-warning{width:100%;margin-top:6px;padding:4px 8px;background:rgba(220,53,69,0.1);color:var(--red);font-size:11px;font-weight:600;border-radius:6px;}
+
+.migrate-banner{position:fixed;top:0;left:0;right:0;z-index:999;text-align:center;padding:8px 12px;font-size:13px;font-weight:600;transition:opacity .3s;}
+.migrate-banner.info{background:#666;color:#fff;}
+.migrate-banner.success{background:var(--green,#2a9d5c);color:#fff;}
+.migrate-banner.error{background:var(--red,#d9534f);color:#fff;cursor:pointer;}
+
+.data-panel{padding:12px 14px;font-size:13px;color:var(--text);}
+.data-panel .muted{color:var(--muted);font-size:12px;margin-bottom:10px;}
 .detail-price-pill{text-align:right;}
 .dpp-val{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;}
 .dpp-chg{font-size:11px;margin-top:1px;}

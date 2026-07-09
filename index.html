@@ -7,10 +7,12 @@
 <link rel="stylesheet" href="css/main.css">
 </head>
 <body>
+<div id="migrateBanner" class="migrate-banner" style="display:none;"></div>
 <div id="app">
 
   <div class="topbar">
     <span class="topbar-title" id="topTitle">台股損益</span>
+    <button class="topbar-btn" onclick="openDataPanel()" style="margin-right:8px;" title="資料管理">⚙</button>
     <button class="topbar-btn" id="topBtnRefresh" onclick="fetchAllPrices()" style="margin-right:8px;">↻ 全部更新</button>
     <button class="topbar-btn" id="topBtn" onclick="topAction()">＋ 新增股票</button>
   </div>
@@ -64,6 +66,7 @@
         <div class="detail-title">
           <div class="detail-name" id="dName"></div>
           <div class="detail-ticker" id="dTicker"></div>
+          <div class="detail-hint" id="dHint" style="display:none;"></div>
         </div>
         <div class="detail-price-pill">
           <div class="dpp-val" id="dPriceVal">—</div>
@@ -128,7 +131,7 @@
       <div class="dtab-content" id="dtab-tx">
         <div class="tbl-action"><button class="btn-secondary" onclick="openAddTx()">＋ 新增交易</button></div>
         <div class="tbl-wrap">
-          <table><thead><tr><th>日期</th><th>類型</th><th>股數/金額</th><th>股價</th><th>收支</th></tr></thead>
+          <table><thead><tr><th>日期</th><th>類型</th><th>股數/金額</th><th>股價</th><th>收支</th><th></th></tr></thead>
           <tbody id="txBody"></tbody></table>
         </div>
       </div>
@@ -150,8 +153,10 @@
         <div class="quick-btns">
           <div class="quick-btn" onclick="openAddTxGlobal('買')"><span class="quick-btn-icon">📈</span>新增買進</div>
           <div class="quick-btn" onclick="openAddTxGlobal('賣')"><span class="quick-btn-icon">📉</span>新增賣出</div>
-          <div class="quick-btn" onclick="openAddTxGlobal('配息')"><span class="quick-btn-icon">💰</span>新增配息</div>
           <div class="quick-btn" onclick="openAddTxGlobal('配股')"><span class="quick-btn-icon">📊</span>新增配股</div>
+        </div>
+        <div class="form-group" style="color:var(--muted);font-size:12px;margin-top:6px;">
+          配息請至個股明細頁的「股利」分頁新增（配息不影響持股數與成本，不屬於交易明細）。
         </div>
       </div>
       <div class="rec-section" style="margin-top:8px;">
@@ -227,6 +232,9 @@
       <div class="form-group"><label class="form-label">總持倉成本（元）</label><input class="form-input" type="number" id="fTotalCost" placeholder="例：18686173"></div>
       <div class="form-group"><label class="form-label">買均（未含費，元）</label><input class="form-input" type="number" id="fBuyAvg" placeholder="例：114.55"></div>
     </div>
+    <div class="form-group" id="txModeHint" style="display:none;color:var(--muted);font-size:12px;margin-bottom:10px;">
+      此股票為【交易計算模式】，持股數由交易明細自動計算，以上欄位僅供顯示。如需修正，請至「交易」分頁編輯交易明細。
+    </div>
     <button class="btn-primary" onclick="saveStock()">儲存</button>
     <button class="btn-danger" id="btnDelStock" onclick="deleteStock()" style="display:none;">刪除此股票</button>
   </div>
@@ -234,7 +242,7 @@
 
 <div class="overlay hidden" id="modalTx">
   <div class="modal">
-    <div class="modal-hd"><span class="modal-title">新增交易</span><button class="btn-close" onclick="closeModal('modalTx')">×</button></div>
+    <div class="modal-hd"><span class="modal-title" id="mTxTitle">新增交易</span><button class="btn-close" onclick="closeModal('modalTx')">×</button></div>
     <div class="form-group"><label class="form-label">股票</label>
       <select class="form-input" id="fTxStock"></select></div>
     <div class="form-row">
@@ -243,7 +251,6 @@
         <select class="form-input" id="fTxType" onchange="onTxTypeChange()">
           <option value="買">買進</option>
           <option value="賣">賣出</option>
-          <option value="配息">配息</option>
           <option value="配股">配股</option>
         </select>
       </div>
@@ -253,11 +260,12 @@
       <div class="form-group"><label class="form-label">成交價（元）</label><input class="form-input" type="number" id="fTxPrice" placeholder="例：119.5"></div>
     </div>
     <div class="form-group hidden" id="txDivRow">
-      <label class="form-label">配息/配股金額或股數</label>
-      <input class="form-input" type="number" id="fTxAmt" placeholder="配息填金額(元)，配股填股數">
+      <label class="form-label">配股股數</label>
+      <input class="form-input" type="number" id="fTxAmt" placeholder="例：1000">
     </div>
     <div class="form-group"><label class="form-label">備註（選填）</label><input class="form-input" id="fTxNote" placeholder=""></div>
-    <button class="btn-primary" onclick="saveTx()">新增</button>
+    <button class="btn-primary" id="btnSaveTx" onclick="saveTx()">新增</button>
+    <button class="btn-danger" id="btnDelTx" onclick="deleteTransactionUI()" style="display:none;">刪除此筆交易</button>
   </div>
 </div>
 
@@ -279,6 +287,13 @@
     <div class="form-group"><label class="form-label">備註</label><input class="form-input" id="fDivNote" placeholder=""></div>
     <button class="btn-primary" onclick="saveDiv()">儲存</button>
     <button class="btn-danger" id="btnDelDiv" onclick="deleteDiv()" style="display:none;">刪除此記錄</button>
+  </div>
+</div>
+
+<div class="overlay hidden" id="modalDataPanel">
+  <div class="modal">
+    <div class="modal-hd"><span class="modal-title">資料管理</span><button class="btn-close" onclick="closeModal('modalDataPanel')">×</button></div>
+    <div class="data-panel" id="dataPanelBody"></div>
   </div>
 </div>
 
@@ -331,6 +346,7 @@ function openDetail(ticker){
   const s=getStock(ticker);
   document.getElementById('dName').textContent=s.name;
   document.getElementById('dTicker').textContent=s.exchange+' · '+s.ticker+(s.calcMode==='tx' ? '  🔄 交易計算模式' : '  📌 手動總表模式');
+  renderDetailHint(s);
   document.getElementById('topTitle').textContent=s.name;
   document.getElementById('topBtn').textContent='✎ 編輯';
   document.getElementById('topBtn').onclick=()=>openEditStock(ticker);
@@ -385,10 +401,10 @@ function renderOverview(){
     card.innerHTML=noData ? `
       <div class="scard-left">
         <div class="scard-name">${s.name}</div>
-        <div class="scard-shares" style="color:var(--hint);">尚無交易記錄</div>
+        <div class="scard-shares" style="color:var(--hint);">${s.calcError?'⚠️ 交易明細有誤':'尚無交易記錄'}</div>
       </div>
       <div class="scard-right">
-        <div class="scard-cost">點擊新增交易</div>
+        <div class="scard-cost">${s.calcError?'點擊檢查交易明細':'點擊新增交易'}</div>
       </div>` : `
       <div class="scard-left">
         <div class="scard-name">${s.name}</div>
@@ -402,7 +418,7 @@ function renderOverview(){
         <div class="scard-cost">成本均 ${s.avgCost.toFixed(2)} / 買均 ${(s.buyAvg||s.avgCost).toFixed(2)}</div>
         <div class="scard-pnl ${pc}">${nt(pnl)}</div>
         <div class="scard-pct ${pc}">${ret>=0?'+':''}${ret.toFixed(2)}%</div>
-      </div>`;
+      </div>${s.calcError?'<div class="scard-warning" title="'+s.calcError.message+'">⚠️ 交易明細有誤</div>':''}`;
     list.appendChild(card);
   });
 
@@ -495,8 +511,27 @@ function loadDetailPrice(s){
   document.getElementById('bePrice').textContent=s.avgCost;
 }
 
+// 顯示期初調整/計算錯誤提示（Spec §5、§8），非每次價格更新都要重算，故獨立於 updateDetail
+function renderDetailHint(s){
+  const el=document.getElementById('dHint');
+  if(s.calcError){
+    el.textContent='⚠️ 交易明細與實際持股不符：'+s.calcError.message+'（持股數字可能不準確，請檢查交易明細）';
+    el.className='detail-hint calc-warning';
+    el.style.display='block';
+  } else if(s.openingBalanceAdjustment){
+    const adj=s.openingBalanceAdjustment;
+    const sSign=adj.shares>0?'+':'';
+    const aSign=adj.amount>0?'+':'';
+    el.textContent=`期初調整：${sSign}${fmtN(adj.shares)} 股 / ${aSign}NT$${fmtN(adj.amount)}（${adj.date}，${adj.note||''}）`;
+    el.className='detail-hint';
+    el.style.display='block';
+  } else {
+    el.style.display='none';
+  }
+}
 function updateDetail(){
   const s=getStock(currentTicker);if(!s)return;
+  renderDetailHint(s);
   const price=parseFloat(document.getElementById('priceInp').value)||s.avgCost;
   s.lastPrice=price; saveDB();
 
@@ -562,14 +597,15 @@ function renderBrokerTable(s,price){
 function renderTxTable(s){
   const tbody=document.getElementById('txBody');
   const txs=(s.transactions||[]).slice().sort((a,b)=>b.date.localeCompare(a.date));
-  if(!txs.length){tbody.innerHTML='<tr><td colspan="5" class="empty">無交易記錄</td></tr>';return;}
+  if(!txs.length){tbody.innerHTML='<tr><td colspan="6" class="empty">無交易記錄</td></tr>';return;}
   tbody.innerHTML=txs.map(t=>{
-    const isDivStock=t.type==='配息'||t.type==='配股';
+    const isStockDividend=t.type==='配股';
     const c=t.type==='買'?'green':t.type==='賣'?'red':'gold';
-    const sharesOrAmt=isDivStock?(t.type==='配息'?'NT$'+fmtN(t.amount||0):fmtN(t.shares)+' 股'):fmtN(t.shares);
-    const priceStr=isDivStock?'—':(t.price||'—');
+    const sharesOrAmt=fmtN(t.shares)+' 股';
+    const priceStr=isStockDividend?'—':(t.price||'—');
     const amtStr=t.amount?'NT$'+fmtN(Math.abs(t.amount)):'—';
-    return `<tr><td>${t.date}</td><td class="${c}">${t.type}</td><td>${sharesOrAmt}</td><td>${priceStr}</td><td>${amtStr}</td></tr>`;
+    return `<tr><td>${t.date}</td><td class="${c}">${t.type}</td><td>${sharesOrAmt}</td><td>${priceStr}</td><td>${amtStr}</td>
+      <td><button style="font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--bd2);background:transparent;color:var(--muted);cursor:pointer;" onclick="openEditTx('${s.ticker}','${t.id}')">編輯</button></td></tr>`;
   }).join('');
 }
 
@@ -719,6 +755,8 @@ function openAddStock(){
   document.getElementById('mStockTitle').textContent='新增股票';
   ['fTicker','fName','fShares','fAvgCost','fTotalCost','fBuyAvg'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('fTicker').readOnly=false;
+  ['fShares','fAvgCost','fTotalCost','fBuyAvg'].forEach(id=>document.getElementById(id).disabled=false);
+  document.getElementById('txModeHint').style.display='none';
   document.getElementById('btnDelStock').style.display='none';
   document.getElementById('stockModeRow').style.display='flex';
   setStockMode('quick');
@@ -726,6 +764,7 @@ function openAddStock(){
 }
 function openEditStock(ticker){
   const s=getStock(ticker);
+  const isTx=s.calcMode==='tx';
   document.getElementById('mStockTitle').textContent='編輯股票';
   document.getElementById('fTicker').value=s.ticker;document.getElementById('fTicker').readOnly=true;
   document.getElementById('fName').value=s.name;
@@ -733,6 +772,8 @@ function openEditStock(ticker){
   document.getElementById('fAvgCost').value=s.avgCost;
   document.getElementById('fTotalCost').value=s.totalCost;
   document.getElementById('fBuyAvg').value=s.buyAvg||'';
+  ['fShares','fAvgCost','fTotalCost','fBuyAvg'].forEach(id=>document.getElementById(id).disabled=isTx);
+  document.getElementById('txModeHint').style.display=isTx?'block':'none';
   document.getElementById('btnDelStock').style.display='block';
   document.getElementById('stockModeRow').style.display='none'; // 編輯時不需切換模式，直接顯示完整欄位
   setStockMode('quick');
@@ -743,10 +784,16 @@ function saveStock(){
   const name=document.getElementById('fName').value.trim();
   if(!ticker||!name){alert('請填寫股票代號與名稱');return;}
 
+  const existing=DB.stocks[ticker];
+  const isEditingTxStock = existing && existing.calcMode==='tx';
+
   let shares,avgCost,totalCost,buyAvg;
-  if(stockModalMode==='minimal' && !DB.stocks[ticker]){
+  if(stockModalMode==='minimal' && !existing){
     // 先建立股票，數據之後靠記錄頁交易明細累積；目前持股數與成本暫為 0
     shares=0; avgCost=0; totalCost=0; buyAvg=0;
+  } else if(isEditingTxStock){
+    // tx 模式股票：快照欄位唯讀，不從表單讀取，維持計算引擎算出來的值
+    shares=existing.shares; avgCost=existing.avgCost; totalCost=existing.totalCost; buyAvg=existing.buyAvg;
   } else {
     shares=parseFloat(document.getElementById('fShares').value);
     avgCost=parseFloat(document.getElementById('fAvgCost').value);
@@ -755,13 +802,17 @@ function saveStock(){
     if(!shares||!avgCost||!totalCost){alert('請填寫持股數、成本均價、總持倉成本');return;}
   }
 
-  if(!DB.stocks[ticker]){
+  if(!existing){
     // minimal（快速新增，數字待交易記錄累積）→ 交易計算模式
     // quick（直接輸入目前持股數/成本）→ 手動總表模式，之後新增交易明細不會自動覆蓋這裡的數字
     const calcMode = (stockModalMode==='minimal') ? 'tx' : 'manual';
-    DB.stocks[ticker]={ticker,name,exchange:'TSE',shares,avgCost,totalCost,buyAvg,calcMode,brokers:[],transactions:[],dividends:[],lastPrice:null,lastPriceTime:null};
+    DB.stocks[ticker]={ticker,name,exchange:'TSE',shares,avgCost,totalCost,buyAvg,calcMode,
+      brokers:[],transactions:[],dividends:[],openingBalanceAdjustment:null,calcError:null,
+      lastPrice:null,lastPriceTime:null};
+  } else if(isEditingTxStock){
+    Object.assign(existing,{name}); // tx 模式只允許改名稱，快照欄位由計算引擎維護
   } else {
-    Object.assign(DB.stocks[ticker],{name,shares,avgCost,totalCost,buyAvg});
+    Object.assign(existing,{name,shares,avgCost,totalCost,buyAvg});
   }
   saveDB();closeModal('modalStock');
   if(currentTicker===ticker)updateDetail();
@@ -777,8 +828,14 @@ function populateTxStockSelect(defaultTicker){
   const sel=document.getElementById('fTxStock');
   sel.innerHTML=Object.values(DB.stocks).map(s=>`<option value="${s.ticker}" ${s.ticker===defaultTicker?'selected':''}>${s.name}(${s.ticker})</option>`).join('');
 }
+let editingTxId=null;
 function openAddTx(){
+  editingTxId=null;
   populateTxStockSelect(currentTicker);
+  document.getElementById('fTxStock').disabled=false;
+  document.getElementById('mTxTitle').textContent='新增交易';
+  document.getElementById('btnSaveTx').textContent='新增';
+  document.getElementById('btnDelTx').style.display='none';
   document.getElementById('fTxDate').value=new Date().toISOString().split('T')[0];
   document.getElementById('fTxType').value='買';
   document.getElementById('fTxShares').value='';
@@ -793,84 +850,217 @@ function openAddTxGlobal(type){
   document.getElementById('fTxType').value=type;
   onTxTypeChange();
 }
+function openEditTx(ticker,txId){
+  const s=getStock(ticker);
+  const t=(s.transactions||[]).find(x=>x.id===txId);
+  if(!t)return;
+  editingTxId=txId;
+  populateTxStockSelect(ticker);
+  document.getElementById('fTxStock').disabled=true; // 編輯時不允許改股票，避免資料歸屬混亂
+  document.getElementById('mTxTitle').textContent='編輯交易';
+  document.getElementById('btnSaveTx').textContent='儲存';
+  document.getElementById('btnDelTx').style.display='block';
+  document.getElementById('fTxDate').value=t.date.replace(/\//g,'-');
+  document.getElementById('fTxType').value=t.type;
+  document.getElementById('fTxShares').value=t.type==='配股'?'':t.shares;
+  document.getElementById('fTxPrice').value=t.price||'';
+  document.getElementById('fTxAmt').value=t.type==='配股'?t.shares:'';
+  document.getElementById('fTxNote').value=t.note||'';
+  onTxTypeChange();
+  openModal('modalTx');
+}
+function deleteTransactionUI(){
+  if(!editingTxId)return;
+  if(!confirm('確定要刪除這筆交易嗎？此操作無法復原。'))return;
+  const ticker=document.getElementById('fTxStock').value;
+  deleteTransaction(ticker,editingTxId);
+  closeModal('modalTx');
+  const s=getStock(ticker);
+  if(currentTicker===ticker){renderTxTable(s);updateDetail();}
+  renderRecentTx();renderOverview();
+}
 function onTxTypeChange(){
   const t=document.getElementById('fTxType').value;
-  const isDivStock=t==='配息'||t==='配股';
-  document.getElementById('txPriceRow').style.display=isDivStock?'none':'grid';
-  document.getElementById('txDivRow').style.display=isDivStock?'block':'none';
+  const isStockDividend=t==='配股';
+  document.getElementById('txPriceRow').style.display=isStockDividend?'none':'grid';
+  document.getElementById('txDivRow').style.display=isStockDividend?'block':'none';
 }
-// 依交易明細（買/賣/配股）重新計算持股數與加權平均成本。
-// 呼叫方（saveTx）只在股票為 calcMode==='tx'（交易計算模式）時才會呼叫本函式；
-// calcMode==='manual'（手動總表模式，預設）的股票，持股數/成本以手動輸入的總表數字為準，
-// 新增交易明細只是記錄用途，不會觸發本函式、不會被歸零覆蓋。
-function recalcFromTransactions(s){
-  const txs=(s.transactions||[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
-  if(!txs.length)return; // 沒有交易明細，維持原本快照數字不動
-
-  let shares=0, cost=0;
-  txs.forEach(t=>{
-    if(t.type==='買'){
-      shares+=t.shares; cost+=t.amount;
-    } else if(t.type==='賣'){
-      // 用賣出當下的加權平均成本，按比例扣減成本
-      const avgAtSale = shares>0 ? cost/shares : 0;
-      shares-=t.shares; cost-=avgAtSale*t.shares;
-      if(shares<0)shares=0;
-      if(cost<0)cost=0;
-    } else if(t.type==='配股'){
-      shares+=t.shares; // 配股不增加成本，僅增加股數（成本均價會被稀釋）
-    }
-    // 配息不影響持股數與成本
+// ══ CALCULATION ENGINE（Spec.md §2） ═══════════════════
+// calcHolding()：純函式。輸入交易明細（+ 選填期初調整），回傳計算結果。
+// 不修改任何傳入參數，不讀寫 DB／localStorage。
+function calcHolding(transactions, openingBalanceAdjustment){
+  const adj = openingBalanceAdjustment || null;
+  const txs = (transactions||[]).slice().sort((a,b)=>{
+    const byDate = a.date.localeCompare(b.date);
+    if(byDate!==0) return byDate;
+    return (a.createdAt||'').localeCompare(b.createdAt||'');
   });
-  s.shares=Math.round(shares);
-  s.totalCost=Math.round(cost);
-  s.avgCost=shares>0 ? Math.round((cost/shares)*100)/100 : 0;
+
+  let shares = adj ? adj.shares : 0;
+  let cost   = adj ? adj.amount : 0;
+  let buyShares = 0, buyCost = 0;
+
+  for(const t of txs){
+    if(t.type==='買'){
+      shares += t.shares; cost += t.amount;
+      buyShares += t.shares; buyCost += t.amount;
+    } else if(t.type==='賣'){
+      const avgAtSale = shares>0 ? cost/shares : 0;
+      const newShares = shares - t.shares;
+      if(newShares < 0){
+        // 不 clamp、不吃掉錯誤：停止計算，回傳這筆交易之前的結果 + 錯誤標示
+        return {
+          shares: Math.round(shares),
+          avgCost: shares>0 ? Math.round((cost/shares)*100)/100 : 0,
+          totalCost: Math.round(cost),
+          buyAvg: buyShares>0 ? Math.round((buyCost/buyShares)*100)/100 : (shares>0?Math.round((cost/shares)*100)/100:0),
+          error: { type:'OVERSELL', txId:t.id, message:`賣出 ${t.shares} 股超過當時持股（${Math.round(shares)} 股），交易日：${t.date}` }
+        };
+      }
+      shares = newShares; cost -= avgAtSale*t.shares;
+    } else if(t.type==='配股'){
+      shares += t.shares; // 配股不增加成本，僅增加股數，稀釋均價
+    }
+    // 配息不影響持股數與成本，且配息已不存在於 Transaction 型別中（Architecture §10）
+  }
+
+  const avgCost = shares>0 ? Math.round((cost/shares)*100)/100 : 0;
+  return {
+    shares: Math.round(shares),
+    avgCost,
+    totalCost: Math.round(cost),
+    buyAvg: buyShares>0 ? Math.round((buyCost/buyShares)*100)/100 : avgCost,
+    error: null
+  };
+}
+
+// applyCalcResult()：呼叫 calcHolding() 並把結果寫回 Stock 快照欄位。
+// 這是唯一允許改動 tx 模式股票快照欄位的地方；有計算錯誤時不覆寫，只記錄 calcError 供 UI 顯示。
+function applyCalcResult(s){
+  const result = calcHolding(s.transactions, s.openingBalanceAdjustment);
+  if(result.error){
+    s.calcError = result.error;
+  } else {
+    s.shares = result.shares;
+    s.avgCost = result.avgCost;
+    s.totalCost = result.totalCost;
+    s.buyAvg = result.buyAvg;
+    s.calcError = null;
+  }
+  return result;
+}
+
+// buildTransaction()：組出完整 Transaction 物件（含 UUID、預留欄位），供 addTransaction/editTransaction 使用
+function buildTransactionFromForm(ticker){
+  const date=document.getElementById('fTxDate').value;
+  const type=document.getElementById('fTxType').value;
+  const note=document.getElementById('fTxNote').value;
+  if(!date)return null;
+
+  if(type==='配股'){
+    const shares=parseFloat(document.getElementById('fTxAmt').value);
+    if(!shares){alert('請填寫配股股數');return null;}
+    return {date:date.replace(/-/g,'/'),type,shares,price:null,amount:0,note};
+  }
+  const shares=parseFloat(document.getElementById('fTxShares').value);
+  const price=parseFloat(document.getElementById('fTxPrice').value);
+  if(!shares||!price){alert('請填寫股數與價格');return null;}
+  return {date:date.replace(/-/g,'/'),type,shares,price,amount:Math.round(price*shares),note};
+}
+
+// 判斷是否與既有交易「疑似重複」（同日期/股數/價格/類型），且排除自己（編輯情境）
+function findDuplicateTx(s,tx,excludeId){
+  return (s.transactions||[]).find(t=>
+    t.id!==excludeId && t.date===tx.date && t.type===tx.type &&
+    t.shares===tx.shares && t.price===tx.price
+  );
+}
+
+// 手動總表模式 → 交易計算模式：單向切換，附期初調整詢問（Spec §3.1）
+function confirmSwitchToTxMode(s){
+  const proceed=confirm(
+    `「${s.name}」目前是【手動總表模式】，持股數/成本是手動輸入的總表數字。\n\n`+
+    `是否切換為【交易計算模式】？\n`+
+    `切換後，持股數與成本會完全依「交易明細」計算，且此操作無法復原（切換後不能再切回手動總表模式）。\n`+
+    `請確認之後（含歷史）所有交易都會完整記錄在這個工具裡，否則數字會不準確。\n\n`+
+    `按「確定」＝切換並重新計算\n按「取消」＝這筆交易僅作記錄保留，目前持股數字不變（可以晚一點再切換）`
+  );
+  if(!proceed)return false;
+
+  const preview=calcHolding(s.transactions,null);
+  const sharesDiff=Math.round((preview.shares||0)-s.shares);
+  const costDiff=Math.round((preview.totalCost||0)-s.totalCost);
+  s.calcMode='tx';
+
+  if(!preview.error && (sharesDiff!==0 || costDiff!==0)){
+    const useAdj=confirm(
+      `交易明細試算結果：${fmtN(preview.shares)} 股／NT$${fmtN(preview.totalCost)}\n`+
+      `目前手動總表：${fmtN(s.shares)} 股／NT$${fmtN(s.totalCost)}\n`+
+      `差額：${sharesDiff>=0?'+':''}${fmtN(sharesDiff)} 股／NT$${costDiff>=0?'+':''}${fmtN(costDiff)}\n\n`+
+      `是否要建立「期初調整」，讓交易計算結果對齊手動總表？\n`+
+      `（期初調整僅用於這次初始化，之後如果發現錯誤，請直接修正交易明細，不要再新增調整）\n\n`+
+      `「確定」＝建立期初調整並對齊\n「取消」＝直接採用交易明細試算結果`
+    );
+    if(useAdj){
+      s.openingBalanceAdjustment={shares:sharesDiff,amount:costDiff,date:todaySlash(),note:'模式切換時自動對齊手動總表'};
+    }
+  }
+  return true;
 }
 
 function saveTx(){
   const ticker=document.getElementById('fTxStock').value;
-  const date=document.getElementById('fTxDate').value;
-  const type=document.getElementById('fTxType').value;
-  const note=document.getElementById('fTxNote').value;
-  if(!ticker||!date){alert('請填寫股票與日期');return;}
+  if(!ticker){alert('請選擇股票');return;}
   const s=getStock(ticker);
   s.transactions=s.transactions||[];
+  const txInput=buildTransactionFromForm(ticker);
+  if(!txInput)return;
 
-  let tx;
-  if(type==='配息'||type==='配股'){
-    const amt=parseFloat(document.getElementById('fTxAmt').value)||0;
-    tx={date:date.replace(/-/g,'/'),type,shares:type==='配股'?amt:0,amount:type==='配息'?amt:0,price:null,note};
-  } else {
-    const shares=parseFloat(document.getElementById('fTxShares').value);
-    const price=parseFloat(document.getElementById('fTxPrice').value);
-    if(!shares||!price){alert('請填寫股數與價格');return;}
-    tx={date:date.replace(/-/g,'/'),type,shares,price,amount:Math.round(price*shares),note};
-  }
-  s.transactions.push(tx);
+  const nowIso=new Date().toISOString();
 
-  if(s.calcMode==='tx'){
-    // 已是「交易計算模式」：持股數/成本一律依交易明細重新計算
-    recalcFromTransactions(s);
+  if(editingTxId){
+    // ── 編輯既有交易 ──
+    const existing=s.transactions.find(t=>t.id===editingTxId);
+    if(!existing){alert('找不到這筆交易，可能已被刪除');closeModal('modalTx');return;}
+    Object.assign(existing,txInput,{updatedAt:nowIso});
   } else {
-    // 目前是「手動總表模式」(持股數/成本為手動輸入)。
-    // 新增交易明細不會自動覆蓋手動數字，除非使用者明確確認切換模式，
-    // 避免像「交易明細不完整時，重新計算把手動總表數字歸零」的情況。
-    const proceed=confirm(
-      `「${s.name}」目前是【手動總表模式】，持股數/成本是手動輸入的總表數字。\n\n`+
-      `是否切換為【交易計算模式】？\n`+
-      `切換後，持股數與成本會完全依「交易明細」從零重新計算，請確認之後（含歷史）所有交易都已完整記錄，否則數字會不準確。\n\n`+
-      `按「確定」＝切換並重新計算\n按「取消」＝這筆交易僅作記錄保留，目前持股數字不變`
-    );
-    if(proceed){
-      s.calcMode='tx';
-      recalcFromTransactions(s);
+    // ── 新增交易 ──
+    const dup=findDuplicateTx(s,txInput,null);
+    if(dup && !confirm(`偵測到一筆內容相同的交易記錄（${dup.date}），是否仍要新增？`))return;
+
+    const tx={
+      id:uuid(), stockTicker:ticker, ...txInput,
+      dividendRef:null, fee:null, tax:null, currency:'TWD',
+      source:'manual', createdAt:nowIso, updatedAt:nowIso
+    };
+    s.transactions.push(tx);
+
+    if(s.calcMode!=='tx'){
+      const switched=confirmSwitchToTxMode(s);
+      if(!switched){
+        // 取消切換：交易僅作記錄保留，不觸發計算，直接存檔結束
+        saveDB();closeModal('modalTx');
+        if(currentTicker===ticker){renderTxTable(s);updateDetail();}
+        renderRecentTx();renderOverview();
+        return;
+      }
     }
   }
 
+  applyCalcResult(s);
   saveDB();closeModal('modalTx');
   if(currentTicker===ticker){renderTxTable(s);updateDetail();}
   renderRecentTx();
   renderOverview();
+}
+
+// deleteTransaction()：從交易明細移除一筆，並依 Spec §4.1 全量重算
+function deleteTransaction(ticker,txId){
+  const s=getStock(ticker);
+  if(!s)return;
+  s.transactions=(s.transactions||[]).filter(t=>t.id!==txId);
+  if(s.calcMode==='tx')applyCalcResult(s);
+  saveDB();
 }
 
 let editDivIdx=null;
@@ -898,6 +1088,36 @@ function openEditDiv(idx){
   document.getElementById('btnDelDiv').style.display='block';
   openModal('modalDiv');
 }
+// 依股利記錄的「配股（股/千股）」比例與除息基準股數，算出實際配發的股數
+function calcBonusShares(stockRate,baseShares){
+  return Math.round((baseShares||0)*(stockRate||0)/1000);
+}
+// 將配股股利記錄與交易明細的 stock_dividend 交易同步（Spec §10.3）：
+// tx 模式股票不需要使用者手動在「交易」分頁重複輸入配股股數，由系統依股利記錄自動維護。
+function syncStockDividendTransaction(s,divEntry){
+  s.transactions=s.transactions||[];
+  const linked=s.transactions.find(t=>t.dividendRef===divEntry.id);
+  const bonusShares=calcBonusShares(divEntry.stock,divEntry.shares);
+
+  if(s.calcMode!=='tx'){
+    return; // manual 模式不靠交易明細計算，不需要同步
+  }
+  if(bonusShares<=0){
+    if(linked)s.transactions=s.transactions.filter(t=>t.id!==linked.id);
+    return;
+  }
+  const nowIso=new Date().toISOString();
+  if(linked){
+    Object.assign(linked,{date:divEntry.date,shares:bonusShares,updatedAt:nowIso});
+  } else {
+    s.transactions.push({
+      id:uuid(),stockTicker:s.ticker,date:divEntry.date,type:'配股',
+      shares:bonusShares,price:null,amount:0,note:'依股利記錄自動產生，請勿手動重複新增',
+      dividendRef:divEntry.id,fee:null,tax:null,currency:'TWD',
+      source:'manual',createdAt:nowIso,updatedAt:nowIso
+    });
+  }
+}
 function saveDiv(){
   const year=parseInt(document.getElementById('fDivYear').value);
   const date=document.getElementById('fDivDate').value.replace(/-/g,'/');
@@ -909,17 +1129,29 @@ function saveDiv(){
   if(!year||!shares){alert('請填寫年度與股數');return;}
   const s=getStock(currentTicker);
   s.dividends=s.dividends||[];
-  const entry={year,date:date||String(year),cash,stock,shares,amount,note};
-  if(editDivIdx!=null&&editDivIdx>=0)s.dividends[editDivIdx]=entry;
+
+  const isEditing=editDivIdx!=null&&editDivIdx>=0;
+  const existingId=isEditing?s.dividends[editDivIdx].id:null;
+  const entry={id:existingId||uuid(),year,date:date||String(year),cash,stock,shares,amount,note};
+  if(isEditing)s.dividends[editDivIdx]=entry;
   else s.dividends.push(entry);
-  saveDB();closeModal('modalDiv');renderDivTab(s);
+
+  syncStockDividendTransaction(s,entry);
+  if(s.calcMode==='tx')applyCalcResult(s);
+
+  saveDB();closeModal('modalDiv');renderDivTab(s);renderTxTable(s);updateDetail();
 }
 function deleteDiv(){
   if(editDivIdx==null)return;
   if(!confirm('確定刪除此配息記錄？'))return;
   const s=getStock(currentTicker);
+  const entry=s.dividends[editDivIdx];
   s.dividends.splice(editDivIdx,1);
-  saveDB();closeModal('modalDiv');renderDivTab(s);
+  if(entry){
+    s.transactions=(s.transactions||[]).filter(t=>t.dividendRef!==entry.id);
+    if(s.calcMode==='tx')applyCalcResult(s);
+  }
+  saveDB();closeModal('modalDiv');renderDivTab(s);renderTxTable(s);updateDetail();
 }
 
 // ══ HELPERS ════════════════════════════════════════════
@@ -985,10 +1217,60 @@ function todayStr(){
   const n=new Date();
   return n.getFullYear()+String(n.getMonth()+1).padStart(2,'0')+String(n.getDate()).padStart(2,'0');
 }
+// 交易/期初調整用的日期格式（YYYY/MM/DD），與 todayStr() 的 CSV 檔名格式不同，不可混用
+function todaySlash(){
+  const n=new Date();
+  return n.getFullYear()+'/'+String(n.getMonth()+1).padStart(2,'0')+'/'+String(n.getDate()).padStart(2,'0');
+}
+
+// ══ MIGRATION UI（Spec.md §6.3、§6.4） ═══════════════════
+function showMigrateBanner(type,text,autoHide){
+  const el=document.getElementById('migrateBanner');
+  el.className='migrate-banner '+type;
+  el.textContent=text;
+  el.style.display='block';
+  if(type==='error'){
+    el.onclick=()=>{el.style.display='none';};
+  }
+  if(autoHide){
+    setTimeout(()=>{el.style.opacity='0';setTimeout(()=>{el.style.display='none';el.style.opacity='1';},300);},autoHide);
+  }
+}
+function openDataPanel(){
+  const meta=getBackupMeta();
+  const body=document.getElementById('dataPanelBody');
+  if(hasBackup()){
+    const when=meta?new Date(meta.backedUpAt).toLocaleString('zh-TW'):'未知時間';
+    body.innerHTML=`
+      <div class="muted">偵測到一份資料升級前的備份（${when}），可還原到升級前的舊格式資料。</div>
+      <button class="btn-danger" onclick="restoreBackupUI()">還原到升級前資料</button>`;
+  } else {
+    body.innerHTML=`<div class="muted">目前沒有可還原的備份資料。</div>`;
+  }
+  openModal('modalDataPanel');
+}
+function restoreBackupUI(){
+  if(!confirm('還原後，目前資料會被取代為升級前的舊格式資料，確定要還原嗎？'))return;
+  if(restoreFromBackup()){
+    alert('已還原，頁面即將重新整理。');
+    location.reload();
+  } else {
+    alert('還原失敗，找不到備份資料。');
+  }
+}
 
 // ══ BOOT ══════════════════════════════════════════════
-loadDB();
-renderOverview();
+(function boot(){
+  const result=loadDB();
+  if(result && result.migrated){
+    if(result.success){
+      showMigrateBanner('success','資料升級完成',2000);
+    } else {
+      showMigrateBanner('error','資料升級失敗，已保留原始資料，請聯絡開發者（點擊關閉）',null);
+    }
+  }
+  renderOverview();
+})();
 </script>
 </body>
 </html>
