@@ -1,5 +1,5 @@
 {
-  "_updated": "2026-07-08T17:58:15+08:00",
+  "_updated": "2026-07-09T20:18:22+08:00",
   "_ok": 12,
   "_fail": 0,
   "prices": {
@@ -8,84 +8,84 @@
       "prevClose": 237.5,
       "change": 0.0,
       "changePct": 0.0,
-      "updated": "2026-07-08T17:58:15+08:00"
+      "updated": "2026-07-09T20:18:22+08:00"
     },
     "2535": {
-      "price": 87.2,
-      "prevClose": 87.2,
+      "price": 88.5,
+      "prevClose": 88.5,
       "change": 0.0,
       "changePct": 0.0,
-      "updated": "2026-07-08T17:58:15+08:00"
+      "updated": "2026-07-09T20:18:22+08:00"
     },
     "2890": {
-      "price": 41.9,
-      "prevClose": 41.9,
+      "price": 40.45,
+      "prevClose": 40.45,
       "change": 0.0,
       "changePct": 0.0,
-      "updated": "2026-07-08T17:58:15+08:00"
+      "updated": "2026-07-09T20:18:22+08:00"
     },
     "2881": {
-      "price": 126.0,
-      "prevClose": 126.0,
+      "price": 124.5,
+      "prevClose": 124.5,
       "change": 0.0,
       "changePct": 0.0,
-      "updated": "2026-07-08T17:58:15+08:00"
+      "updated": "2026-07-09T20:18:22+08:00"
     },
     "6239": {
-      "price": 318.0,
-      "prevClose": 318.0,
+      "price": 320.0,
+      "prevClose": 320.0,
       "change": 0.0,
       "changePct": 0.0,
-      "updated": "2026-07-08T17:58:15+08:00"
+      "updated": "2026-07-09T20:18:22+08:00"
     },
     "00878": {
-      "price": 33.2,
-      "prevClose": 33.2,
+      "price": 33.19,
+      "prevClose": 33.19,
       "change": 0.0,
       "changePct": 0.0,
-      "updated": "2026-07-08T17:58:15+08:00"
+      "updated": "2026-07-09T20:18:22+08:00"
     },
     "00724B": {
-      "price": 34.09,
-      "prevClose": 34.09,
+      "price": 34.1,
+      "prevClose": 34.1,
       "change": 0.0,
       "changePct": 0.0,
-      "updated": "2026-07-08T17:58:15+08:00"
+      "updated": "2026-07-09T20:18:22+08:00"
     },
     "5880": {
-      "price": 25.1,
-      "prevClose": 25.1,
+      "price": 25.15,
+      "prevClose": 25.15,
       "change": 0.0,
       "changePct": 0.0,
-      "updated": "2026-07-08T17:58:15+08:00"
+      "updated": "2026-07-09T20:18:22+08:00"
     },
     "00881": {
-      "price": 53.4,
-      "prevClose": 53.4,
+      "price": 53.3,
+      "prevClose": 53.3,
       "change": 0.0,
       "changePct": 0.0,
-      "updated": "2026-07-08T17:58:15+08:00"
+      "updated": "2026-07-09T20:18:22+08:00"
     },
     "2303": {
-      "price": 163.0,
-      "prevClose": 163.0,
+      "price": 156.0,
+      "prevClose": 156.0,
       "change": 0.0,
       "changePct": 0.0,
-      "updated": "2026-07-08T17:58:15+08:00"
+      "updated": "2026-07-09T20:18:22+08:00"
     },
     "0056": {
-      "price": 52.35,
-      "prevClose": 52.35,
+      "price": 52.65,
+      "prevClose": 52.65,
       "change": 0.0,
       "changePct": 0.0,
-      "updated": "2026-07-08T17:58:15+08:00"
+      "updated": "2026-07-09T20:18:22+08:00"
     },
     "2882": {
-      "price": 98.0,
-      "prevClose": 98.0,
+      "price": 96.3,
+      "prevClose": 96.3,
       "change": 0.0,
       "changePct": 0.0,
-      "updated": "2026-07-08T17:58:15+08:00"
+      "updated": "2026-07-09T20:18:22+08:00"
     }
   }
 }
