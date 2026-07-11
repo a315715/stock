@@ -929,6 +929,9 @@ function calcHolding(transactions, openingBalanceAdjustment){
       shares = newShares; cost -= avgAtSale*t.shares;
     } else if(t.type==='配股'){
       shares += t.shares; // 配股不增加成本，僅增加股數，稀釋均價
+    } else if(t.type==='餘額調整'){
+      shares += t.shares; cost += t.amount;
+      // 不計入 buyShares/buyCost：這不是真實買進，不該拉動「買進均價」（v1.2）
     }
     // 配息不影響持股數與成本，且配息已不存在於 Transaction 型別中（Architecture §10）
   }
@@ -945,6 +948,7 @@ function calcHolding(transactions, openingBalanceAdjustment){
 
 // applyCalcResult()：呼叫 calcHolding() 並把結果寫回 Stock 快照欄位。
 // 這是唯一允許改動 tx 模式股票快照欄位的地方；有計算錯誤時不覆寫，只記錄 calcError 供 UI 顯示。
+// v1.2：tx 模式下，順便重算 s.brokers（分券商衍生視圖），維持它跟交易明細同步，不需要另外呼叫。
 function applyCalcResult(s){
   const result = calcHolding(s.transactions, s.openingBalanceAdjustment);
   if(result.error){
@@ -956,7 +960,25 @@ function applyCalcResult(s){
     s.buyAvg = result.buyAvg;
     s.calcError = null;
   }
+  if(s.calcMode==='tx'){
+    s.brokers = calcHoldingByBroker(s.transactions);
+  }
   return result;
+}
+
+// calcHoldingByBroker()：純函式，依 Transaction 的 broker 欄位分組，各自呼叫 calcHolding()（v1.2）
+// broker 為 null（手動輸入未填券商）的交易歸類到 '未分類'；股數算出來是 0 的券商不列入（可能已全數轉出）
+function calcHoldingByBroker(transactions){
+  const groups={};
+  (transactions||[]).forEach(t=>{
+    const key=t.broker||'未分類';
+    (groups[key]=groups[key]||[]).push(t);
+  });
+  return Object.keys(groups).map(broker=>{
+    const r=calcHolding(groups[broker],null);
+    return {name:broker, shares:r.shares, avg:r.avgCost, cost:r.totalCost};
+  }).filter(g=>g.shares!==0)
+    .sort((a,b)=>b.shares-a.shares);
 }
 
 // buildTransaction()：組出完整 Transaction 物件（含 UUID、預留欄位），供 addTransaction/editTransaction 使用
@@ -1327,20 +1349,19 @@ function formatDateSlash(dateRaw){
 }
 
 // ── §3.2 單一股票的事件列 → Transaction/Dividend/OpeningBalanceAdjustment ──
-function buildImportedTransaction({ticker,date,type,shares,price,amount,note,dividendRef}){
+function buildImportedTransaction({ticker,date,type,shares,price,amount,note,dividendRef,broker}){
   const nowIso=new Date().toISOString();
   return {
     id:uuid(), stockTicker:ticker, date, type, shares, price, amount, note:note||'',
-    dividendRef:dividendRef||null, fee:null, tax:null, currency:'TWD',
+    dividendRef:dividendRef||null, broker:broker||null, fee:null, tax:null, currency:'TWD',
     source:'csv', createdAt:nowIso, updatedAt:nowIso
   };
 }
 function convertEventRowsForStock(eventRows,ticker){
   const transactions=[], dividends=[], skipped=[];
-  let obShares=0, obAmount=0, obDates=[], hasOB=false;
 
   eventRows.forEach(r=>{
-    const eventId=r[0], dateRaw=r[1], eventType=r[5], quantity=r[6], price=r[7], amount=r[8],
+    const eventId=r[0], dateRaw=r[1], broker=r[2], eventType=r[5], quantity=r[6], price=r[7], amount=r[8],
           dividendPerShare=r[11], cashAmount=r[12], sourceQty=r[13];
 
     if(!eventId || !dateRaw || !eventType){
@@ -1353,7 +1374,7 @@ function convertEventRowsForStock(eventRows,ticker){
       if(!quantity || !price){skipped.push({eventId,reason:'買賣記錄缺股數或價格'});return;}
       transactions.push(buildImportedTransaction({
         ticker, date, type: eventType==='買進'?'買':'賣',
-        shares:quantity, price, amount: amount||Math.round(price*quantity), note:''
+        shares:quantity, price, amount: amount||Math.round(price*quantity), note:'', broker
       }));
     } else if(eventType==='現金股利'){
       if(!sourceQty){skipped.push({eventId,reason:'現金股利缺基準股數'});return;}
@@ -1372,57 +1393,55 @@ function convertEventRowsForStock(eventRows,ticker){
       });
       transactions.push(buildImportedTransaction({
         ticker, date, type:'配股', shares:quantity, price:null, amount:0,
-        note:'依 EventLog 股票股利記錄自動產生', dividendRef:divId
+        note:'依 EventLog 股票股利記錄自動產生', dividendRef:divId, broker
       }));
     } else if(eventType==='餘額調整'){
-      hasOB=true;
-      obShares+=quantity||0;
-      obAmount+=amount||0;
-      obDates.push(date);
+      // v1.2：逐筆匯入成 Transaction（帶券商），不再加總成 openingBalanceAdjustment，
+      // 因為這類記錄實際上都有明確券商依據，不屬於「未知缺口」（見 ArchitectureV1.2 §4）
+      transactions.push(buildImportedTransaction({
+        ticker, date, type:'餘額調整', shares:quantity||0, price:null, amount:amount||0,
+        note:'依 EventLog 餘額調整記錄匯入', broker
+      }));
     } else {
       skipped.push({eventId, reason:`未知的 Event 類型「${eventType}」`});
     }
   });
 
-  const openingBalanceAdjustment = hasOB ? {
-    shares:Math.round(obShares), amount:Math.round(obAmount),
-    date: obDates.sort().slice(-1)[0],
-    note:'依 EventLog 餘額調整彙總'
-  } : null;
-
-  return {transactions, dividends, openingBalanceAdjustment, skipped};
+  return {transactions, dividends, skipped};
 }
 
 // ── §3.3 整批匯入主流程 ──
 function importFromEventLog(fileBuffer){
   let parsed;
   try{ parsed=readEventLogWorkbook(fileBuffer); }
-  catch(e){ return {success:false, results:[], skipped:[], error:e.message}; }
+  catch(e){ return {success:false, results:[], skipped:[], removed:[], error:e.message}; }
 
   const heldTickers=getHeldTickers(parsed.stockMaster);
   const results=[], allSkipped=[];
 
+  // v1.2：移除不在這次「持有中」名單內的既有股票（例如舊測試/種子資料殘留），
+  // 讓匯入後 DB.stocks 精確等於 EventLog 目前持有的股票，不多不少。
+  const removed=[];
+  Object.keys(DB.stocks).forEach(ticker=>{
+    if(!heldTickers.includes(ticker)){
+      removed.push(ticker+' '+(DB.stocks[ticker].name||''));
+      delete DB.stocks[ticker];
+    }
+  });
+
   heldTickers.forEach(ticker=>{
     const stockRows=parsed.eventLog.filter(r=>r[3]===ticker);
-    const {transactions,dividends,openingBalanceAdjustment,skipped}=convertEventRowsForStock(stockRows,ticker);
+    const {transactions,dividends,skipped}=convertEventRowsForStock(stockRows,ticker);
     skipped.forEach(s=>allSkipped.push({ticker,...s}));
 
-    let s=DB.stocks[ticker];
     const masterRow=parsed.stockMaster.find(r=>r[0]===ticker);
     const name=masterRow?masterRow[1]:ticker;
-    if(!s){
-      s={ticker,name,exchange:'TSE',calcMode:'tx',shares:0,avgCost:0,totalCost:0,buyAvg:0,
-         brokers:[],transactions:[],dividends:[],openingBalanceAdjustment:null,
-         calcError:null,lastPrice:null,lastPriceTime:null};
-      DB.stocks[ticker]=s;
-    }
     // 整批覆蓋（Architecture §3.2：不合併既有資料）
-    s.name=name;
-    s.calcMode='tx';
-    s.transactions=transactions;
-    s.dividends=dividends;
-    s.openingBalanceAdjustment=openingBalanceAdjustment;
-    applyCalcResult(s);
+    const s={ticker,name,exchange:'TSE',calcMode:'tx',shares:0,avgCost:0,totalCost:0,buyAvg:0,
+       brokers:[],transactions,dividends,openingBalanceAdjustment:null,
+       calcError:null,lastPrice:null,lastPriceTime:null};
+    DB.stocks[ticker]=s;
+    applyCalcResult(s); // tx 模式下，這一步順便算好 s.brokers（見 applyCalcResult 的 v1.2 修訂）
 
     const knownIssueRow=parsed.knownIssues.find(r=>r[0]===ticker);
     results.push({
@@ -1435,7 +1454,7 @@ function importFromEventLog(fileBuffer){
   });
 
   saveDB();
-  return {success:true, results, skipped:allSkipped, error:null};
+  return {success:true, results, skipped:allSkipped, removed, error:null};
 }
 
 // ── §4 UI Flow ──
@@ -1486,13 +1505,19 @@ function renderImportResult(result){
       </ul>
     </details>` : '';
 
+  const removedHtml = (result.removed && result.removed.length) ? `
+    <div style="font-size:11px;color:var(--muted);margin-top:8px;">
+      ℹ️ 已移除 ${result.removed.length} 檔不在目前持有名單內的舊資料：${result.removed.join('、')}
+    </div>` : '';
+
   el.innerHTML=`
     <div style="margin-top:8px;font-size:12px;color:var(--muted);">匯入完成，共處理 ${result.results.length} 檔持股</div>
     <table class="import-result-table">
       <thead><tr><th>股票</th><th>匯入後股數</th><th>EventLog記錄</th><th>差異</th><th>狀態</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
-    ${skipHtml}`;
+    ${skipHtml}
+    ${removedHtml}`;
 }
 
 // ══ BOOT ══════════════════════════════════════════════
