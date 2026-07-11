@@ -293,7 +293,16 @@
 <div class="overlay hidden" id="modalDataPanel">
   <div class="modal">
     <div class="modal-hd"><span class="modal-title">資料管理</span><button class="btn-close" onclick="closeModal('modalDataPanel')">×</button></div>
-    <div class="data-panel" id="dataPanelBody"></div>
+    <div class="data-panel">
+      <div class="data-panel-section">
+        <div class="data-panel-title">EventLog 匯入</div>
+        <div class="muted">只會匯入「目前持有」的股票（依 04_股票基本資料的「目前狀態」判斷），已出清股票不受影響。重新匯入會整批覆蓋這些股票原有的交易/股利記錄。</div>
+        <input type="file" id="eventLogFile" accept=".xlsx" style="margin:8px 0;display:block;">
+        <button class="btn-primary" id="btnImportEventLog" onclick="handleEventLogImport()">開始匯入</button>
+        <div id="importResultArea"></div>
+      </div>
+      <div class="data-panel-section" id="restoreSection"></div>
+    </div>
   </div>
 </div>
 
@@ -1238,15 +1247,20 @@ function showMigrateBanner(type,text,autoHide){
 }
 function openDataPanel(){
   const meta=getBackupMeta();
-  const body=document.getElementById('dataPanelBody');
+  const restoreEl=document.getElementById('restoreSection');
   if(hasBackup()){
     const when=meta?new Date(meta.backedUpAt).toLocaleString('zh-TW'):'未知時間';
-    body.innerHTML=`
+    restoreEl.innerHTML=`
+      <div class="data-panel-title">還原</div>
       <div class="muted">偵測到一份資料升級前的備份（${when}），可還原到升級前的舊格式資料。</div>
       <button class="btn-danger" onclick="restoreBackupUI()">還原到升級前資料</button>`;
   } else {
-    body.innerHTML=`<div class="muted">目前沒有可還原的備份資料。</div>`;
+    restoreEl.innerHTML=`<div class="data-panel-title">還原</div><div class="muted">目前沒有可還原的備份資料。</div>`;
   }
+  document.getElementById('eventLogFile').value='';
+  document.getElementById('importResultArea').innerHTML='';
+  document.getElementById('btnImportEventLog').disabled=false;
+  document.getElementById('btnImportEventLog').textContent='開始匯入';
   openModal('modalDataPanel');
 }
 function restoreBackupUI(){
@@ -1257,6 +1271,228 @@ function restoreBackupUI(){
   } else {
     alert('還原失敗，找不到備份資料。');
   }
+}
+
+// ══ EVENTLOG 匯入（Spec.md / SpecEventLogImport.md） ═══════════════════
+
+// ── §1 SheetJS 延遲載入，版本釘死 ──
+const SHEETJS_URL='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+let sheetJsLoaded=false;
+function loadSheetJs(){
+  return new Promise((resolve,reject)=>{
+    if(sheetJsLoaded || typeof XLSX!=='undefined'){resolve();return;}
+    const script=document.createElement('script');
+    script.src=SHEETJS_URL;
+    script.onload=()=>{sheetJsLoaded=true;resolve();};
+    script.onerror=()=>reject(new Error('無法載入 xlsx 解析函式庫，請確認網路連線後重試'));
+    document.head.appendChild(script);
+  });
+}
+
+// ── §2 讀取 ──
+// 在工作表的前10列內，找出第一欄等於 expectedFirstHeader 的那一列，視為表頭列。
+function findDataRows(sheetRowsRaw,expectedFirstHeader){
+  const idx=sheetRowsRaw.findIndex(r=>r && r[0]===expectedFirstHeader);
+  if(idx===-1)return null;
+  return {headerRowIndex:idx, rows:sheetRowsRaw.slice(idx+1)};
+}
+function readEventLogWorkbook(fileBuffer){
+  const wb=XLSX.read(fileBuffer,{type:'array',cellDates:true});
+  const need=(name)=>{
+    if(!wb.Sheets[name])throw new Error(`找不到「${name}」分頁，請確認上傳的是正確的 EventLog 檔案`);
+    return XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:true});
+  };
+  const eventLogRaw=need('01_EventLog');
+  const knownIssuesRaw=need('03_已知事項');
+  const stockMasterRaw=need('04_股票基本資料');
+
+  const el=findDataRows(eventLogRaw,'EventID');
+  const ki=findDataRows(knownIssuesRaw,'代碼');
+  const sm=findDataRows(stockMasterRaw,'代碼');
+  if(!el)throw new Error('01_EventLog 找不到表頭列（EventID），請確認檔案格式沒有變動');
+  if(!sm)throw new Error('04_股票基本資料 找不到表頭列（代碼），請確認檔案格式沒有變動');
+
+  return {eventLog:el.rows, knownIssues:ki?ki.rows:[], stockMaster:sm.rows};
+}
+
+// ── §3.1 篩選目前持有的股票 ──
+function getHeldTickers(stockMasterRows){
+  return stockMasterRows.filter(r=>r && r[5]==='持有中').map(r=>r[0]);
+}
+
+// ── §5 輔助：日期格式統一 ──
+function formatDateSlash(dateRaw){
+  const d=(dateRaw instanceof Date)?dateRaw:new Date(dateRaw);
+  return d.getFullYear()+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0');
+}
+
+// ── §3.2 單一股票的事件列 → Transaction/Dividend/OpeningBalanceAdjustment ──
+function buildImportedTransaction({ticker,date,type,shares,price,amount,note,dividendRef}){
+  const nowIso=new Date().toISOString();
+  return {
+    id:uuid(), stockTicker:ticker, date, type, shares, price, amount, note:note||'',
+    dividendRef:dividendRef||null, fee:null, tax:null, currency:'TWD',
+    source:'csv', createdAt:nowIso, updatedAt:nowIso
+  };
+}
+function convertEventRowsForStock(eventRows,ticker){
+  const transactions=[], dividends=[], skipped=[];
+  let obShares=0, obAmount=0, obDates=[], hasOB=false;
+
+  eventRows.forEach(r=>{
+    const eventId=r[0], dateRaw=r[1], eventType=r[5], quantity=r[6], price=r[7], amount=r[8],
+          dividendPerShare=r[11], cashAmount=r[12], sourceQty=r[13];
+
+    if(!eventId || !dateRaw || !eventType){
+      skipped.push({eventId:eventId||'(無EventID)', reason:'缺必要欄位（EventID/Date/Event）'});
+      return;
+    }
+    const date=formatDateSlash(dateRaw);
+
+    if(eventType==='買進' || eventType==='賣出'){
+      if(!quantity || !price){skipped.push({eventId,reason:'買賣記錄缺股數或價格'});return;}
+      transactions.push(buildImportedTransaction({
+        ticker, date, type: eventType==='買進'?'買':'賣',
+        shares:quantity, price, amount: amount||Math.round(price*quantity), note:''
+      }));
+    } else if(eventType==='現金股利'){
+      if(!sourceQty){skipped.push({eventId,reason:'現金股利缺基準股數'});return;}
+      dividends.push({
+        id:uuid(), year:new Date(date.replace(/\//g,'-')).getFullYear(),
+        date, cash:dividendPerShare||0, stock:0, shares:sourceQty,
+        amount:cashAmount||0, note:'EventLog 匯入'
+      });
+    } else if(eventType==='股票股利'){
+      if(!quantity || !sourceQty){skipped.push({eventId,reason:'股票股利缺股數或基準股數'});return;}
+      const divId=uuid();
+      dividends.push({
+        id:divId, year:new Date(date.replace(/\//g,'-')).getFullYear(),
+        date, cash:0, stock:Math.round(quantity/sourceQty*1000),
+        shares:sourceQty, amount:0, note:'EventLog 匯入'
+      });
+      transactions.push(buildImportedTransaction({
+        ticker, date, type:'配股', shares:quantity, price:null, amount:0,
+        note:'依 EventLog 股票股利記錄自動產生', dividendRef:divId
+      }));
+    } else if(eventType==='餘額調整'){
+      hasOB=true;
+      obShares+=quantity||0;
+      obAmount+=amount||0;
+      obDates.push(date);
+    } else {
+      skipped.push({eventId, reason:`未知的 Event 類型「${eventType}」`});
+    }
+  });
+
+  const openingBalanceAdjustment = hasOB ? {
+    shares:Math.round(obShares), amount:Math.round(obAmount),
+    date: obDates.sort().slice(-1)[0],
+    note:'依 EventLog 餘額調整彙總'
+  } : null;
+
+  return {transactions, dividends, openingBalanceAdjustment, skipped};
+}
+
+// ── §3.3 整批匯入主流程 ──
+function importFromEventLog(fileBuffer){
+  let parsed;
+  try{ parsed=readEventLogWorkbook(fileBuffer); }
+  catch(e){ return {success:false, results:[], skipped:[], error:e.message}; }
+
+  const heldTickers=getHeldTickers(parsed.stockMaster);
+  const results=[], allSkipped=[];
+
+  heldTickers.forEach(ticker=>{
+    const stockRows=parsed.eventLog.filter(r=>r[3]===ticker);
+    const {transactions,dividends,openingBalanceAdjustment,skipped}=convertEventRowsForStock(stockRows,ticker);
+    skipped.forEach(s=>allSkipped.push({ticker,...s}));
+
+    let s=DB.stocks[ticker];
+    const masterRow=parsed.stockMaster.find(r=>r[0]===ticker);
+    const name=masterRow?masterRow[1]:ticker;
+    if(!s){
+      s={ticker,name,exchange:'TSE',calcMode:'tx',shares:0,avgCost:0,totalCost:0,buyAvg:0,
+         brokers:[],transactions:[],dividends:[],openingBalanceAdjustment:null,
+         calcError:null,lastPrice:null,lastPriceTime:null};
+      DB.stocks[ticker]=s;
+    }
+    // 整批覆蓋（Architecture §3.2：不合併既有資料）
+    s.name=name;
+    s.calcMode='tx';
+    s.transactions=transactions;
+    s.dividends=dividends;
+    s.openingBalanceAdjustment=openingBalanceAdjustment;
+    applyCalcResult(s);
+
+    const knownIssueRow=parsed.knownIssues.find(r=>r[0]===ticker);
+    results.push({
+      ticker, name,
+      importedShares:s.shares,
+      expectedShares: masterRow?masterRow[4]:null,
+      diff: masterRow?(s.shares-masterRow[4]):null,
+      knownIssueNote: (knownIssueRow && knownIssueRow[4]!==0) ? knownIssueRow[5] : null
+    });
+  });
+
+  saveDB();
+  return {success:true, results, skipped:allSkipped, error:null};
+}
+
+// ── §4 UI Flow ──
+async function handleEventLogImport(){
+  const fileInput=document.getElementById('eventLogFile');
+  const file=fileInput.files[0];
+  if(!file){alert('請先選擇 EventLog 檔案（.xlsx）');return;}
+
+  const btn=document.getElementById('btnImportEventLog');
+  const resultArea=document.getElementById('importResultArea');
+  btn.disabled=true; btn.textContent='匯入中...'; resultArea.innerHTML='';
+
+  try{
+    await loadSheetJs();
+    const buffer=await file.arrayBuffer();
+    const result=importFromEventLog(buffer);
+    renderImportResult(result);
+    if(result.success){ renderOverview(); if(currentTicker)updateDetail(); }
+  }catch(e){
+    resultArea.innerHTML=`<div class="import-error">匯入失敗：${e.message}</div>`;
+  }finally{
+    btn.disabled=false; btn.textContent='開始匯入';
+  }
+}
+function renderImportResult(result){
+  const el=document.getElementById('importResultArea');
+  if(!result.success){
+    el.innerHTML=`<div class="import-error">${result.error}</div>`;
+    return;
+  }
+  const rows=result.results.map(r=>{
+    const isDiff=r.diff!==null && r.diff!==0;
+    const noteHtml=r.knownIssueNote?`<br><span class="muted" style="font-size:11px;">${r.knownIssueNote}</span>`:'';
+    return `<tr class="${isDiff?'diff-warning':''}">
+      <td>${r.ticker} ${r.name}${noteHtml}</td>
+      <td>${fmtN(r.importedShares)}</td>
+      <td>${r.expectedShares!==null?fmtN(r.expectedShares):'—'}</td>
+      <td>${r.diff!==null?fmtN(r.diff):'—'}</td>
+      <td>${isDiff?'⚠️':'✅'}</td>
+    </tr>`;
+  }).join('');
+
+  const skipHtml = result.skipped.length ? `
+    <details class="import-skip-summary">
+      <summary>⚠️ 共略過 ${result.skipped.length} 筆記錄（格式異常），點此查看明細</summary>
+      <ul style="margin:6px 0 0 18px;font-size:11px;color:var(--muted);">
+        ${result.skipped.map(s=>`<li>${s.ticker} / ${s.eventId} — ${s.reason}</li>`).join('')}
+      </ul>
+    </details>` : '';
+
+  el.innerHTML=`
+    <div style="margin-top:8px;font-size:12px;color:var(--muted);">匯入完成，共處理 ${result.results.length} 檔持股</div>
+    <table class="import-result-table">
+      <thead><tr><th>股票</th><th>匯入後股數</th><th>EventLog記錄</th><th>差異</th><th>狀態</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    ${skipHtml}`;
 }
 
 // ══ BOOT ══════════════════════════════════════════════

@@ -77,6 +77,15 @@ body{color:var(--text);font-family:-apple-system,"SF Pro Display","Helvetica Neu
 
 .data-panel{padding:12px 14px;font-size:13px;color:var(--text);}
 .data-panel .muted{color:var(--muted);font-size:12px;margin-bottom:10px;}
+.data-panel-section{padding-bottom:14px;margin-bottom:14px;border-bottom:1px solid var(--bd);}
+.data-panel-section:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
+.data-panel-title{font-weight:700;font-size:14px;margin-bottom:6px;}
+.import-result-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;}
+.import-result-table th,.import-result-table td{padding:5px 6px;text-align:right;border-bottom:1px solid var(--bd);}
+.import-result-table th:first-child,.import-result-table td:first-child{text-align:left;}
+.import-result-table tr.diff-warning{background:rgba(220,53,69,0.1);}
+.import-skip-summary{font-size:12px;color:var(--red);margin-top:8px;cursor:pointer;}
+.import-error{color:var(--red);font-size:13px;margin-top:8px;}
 .detail-price-pill{text-align:right;}
 .dpp-val{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;}
 .dpp-chg{font-size:11px;margin-top:1px;}
