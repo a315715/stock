@@ -1,10 +1,14 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{
-  --bg0:#0e0f11;--bg1:#16181c;--bg2:#1e2127;--bg3:#262b33;
-  --bd:#2e3340;--bd2:#3a4050;
-  --text:#e8eaf0;--muted:#7a8090;--hint:#4a5060;
-  --red:#ef5350;--green:#26a69a;--gold:#f0b429;--blue:#4a9eff;
+  /* v1.3：色票改套 Dashboard 風格（投資組合Dashboard_20260711D）。
+     --blue 保留給互動元件（按鈕/分頁選取/輸入焦點），跟 Dashboard 的
+     金色語意（資料強調）分開，避免整頁都是金色分不清可點擊區域。 */
+  --bg0:#0f1611;--bg1:#161f19;--bg2:#1c2620;--bg3:#243029;
+  --bd:#2a362f;--bd2:#3a4a40;
+  --text:#e8ede9;--muted:#8fa398;--hint:#5c6f64;
+  --red:#e5484d;--green:#3fb271;--gold:#c9a15a;--blue:#4a9eff;
   --blue-bg:rgba(74,158,255,0.12);
+  --mono:'JetBrains Mono','SF Mono','Courier New',monospace;
   --radius:10px;
   --safe-b:env(safe-area-inset-bottom,0px);
 }
@@ -30,16 +34,29 @@ body{color:var(--text);font-family:-apple-system,"SF Pro Display","Helvetica Neu
 /* pages */
 .page{display:none;}.page.on{display:block;}
 
-/* ── OVERVIEW ── */
-.hero{padding:20px 16px 16px;border-bottom:1px solid var(--bd);}
-.hero-tag{font-size:12px;color:var(--muted);margin-bottom:6px;}
-.hero-pnl{font-size:50px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;letter-spacing:-0.5px;}
-.hero-pct{font-size:23px;font-weight:600;margin-left:10px;vertical-align:middle;}
-.hero-row{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-top:14px;border-top:1px solid var(--bd);padding-top:12px;}
-.hero-stat{text-align:center;padding:0 4px;}
-.hero-stat:not(:last-child){border-right:1px solid var(--bd);}
-.hero-stat-lbl{font-size:12px;color:var(--hint);margin-bottom:4px;}
-.hero-stat-val{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;}
+/* ── OVERVIEW：摘要卡（v1.3，比照 Dashboard 風格）── */
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;
+  background:var(--bd);border:1px solid var(--bd);border-radius:var(--radius);overflow:hidden;
+  margin:16px 16px 0;}
+.sum-cell{background:var(--bg1);padding:14px 13px;}
+/* 5 格摘要卡在窄螢幕通常會排成 2 欄，最後一格單獨落單時撐滿整列，
+   避免空白網格格子露出容器底色（看起來像多一個空卡片）*/
+.sum-cell:nth-last-child(1):nth-child(odd){grid-column:1 / -1;}
+.sum-label{font-size:11px;color:var(--hint);margin-bottom:6px;}
+.sum-value{font-family:var(--mono);font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2;color:var(--text);}
+.sum-sub{font-family:var(--mono);font-size:11px;margin-top:4px;color:var(--muted);}
+
+/* ── OVERVIEW：資產配置圓餅圖（v1.3）── */
+.alloc-card{margin:14px 16px 0;background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius);padding:16px;}
+.alloc-title{font-size:12px;font-weight:700;color:var(--gold);letter-spacing:.04em;margin-bottom:12px;}
+.donut-row{display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
+.donut{width:120px;height:120px;border-radius:50%;flex-shrink:0;background:var(--bg3);}
+.legend{flex:1;min-width:160px;font-size:12px;}
+.legend-item{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px dashed var(--bd);}
+.legend-item:last-child{border-bottom:none;}
+.legend-name{display:flex;align-items:center;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);}
+.legend-pct{font-family:var(--mono);color:var(--muted);flex-shrink:0;}
+.legend-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:7px;flex-shrink:0;}
 
 .list-hd{display:flex;justify-content:space-between;align-items:center;padding:14px 16px 8px;}
 .list-hd-l{font-size:13px;font-weight:600;color:var(--muted);}
@@ -52,11 +69,11 @@ body{color:var(--text);font-family:-apple-system,"SF Pro Display","Helvetica Neu
 .scard-name{font-size:18px;font-weight:600;color:var(--text);}
 .scard-shares{font-size:13px;color:var(--muted);margin-top:2px;}
 .scard-mid{text-align:center;min-width:90px;}
-.scard-price{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;}
+.scard-price{font-family:var(--mono);font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;}
 .scard-chg{font-size:12px;margin-top:2px;}
 .scard-right{text-align:right;min-width:100px;}
 .scard-cost{font-size:13px;color:var(--muted);margin-bottom:3px;}
-.scard-pnl{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;}
+.scard-pnl{font-family:var(--mono);font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;}
 .scard-pct{font-size:12px;margin-top:2px;}
 .red{color:var(--red)!important;}.green{color:var(--green)!important;}.gold{color:var(--gold)!important;}
 
@@ -116,7 +133,7 @@ body{color:var(--text);font-family:-apple-system,"SF Pro Display","Helvetica Neu
 @media(min-width:420px){.dkpi-grid{grid-template-columns:repeat(4,1fr);}}
 .dkpi{background:var(--bg2);border:1px solid var(--bd);border-radius:var(--radius);padding:12px 13px;}
 .dkpi-lbl{font-size:10px;color:var(--hint);margin-bottom:4px;letter-spacing:0.02em;}
-.dkpi-val{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2;}
+.dkpi-val{font-family:var(--mono);font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2;}
 .dkpi-sub{font-size:10px;color:var(--muted);margin-top:3px;}
 
 /* breakeven */

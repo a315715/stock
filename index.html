@@ -21,25 +21,15 @@
 
     <!-- ══ OVERVIEW ══ -->
     <div class="page on" id="pageOverview">
-      <div class="hero">
-        <div class="hero-tag">累積損益</div>
-        <div>
-          <span class="hero-pnl" id="heroPnl">—</span>
-          <span class="hero-pct" id="heroPct"></span>
-        </div>
-        <div class="hero-row">
-          <div class="hero-stat">
-            <div class="hero-stat-lbl">持股日損益</div>
-            <div class="hero-stat-val" id="heroDayPnl">—</div>
-          </div>
-          <div class="hero-stat">
-            <div class="hero-stat-lbl">持股市值</div>
-            <div class="hero-stat-val" id="heroMV">—</div>
-          </div>
-          <div class="hero-stat">
-            <div class="hero-stat-lbl">股息收入</div>
-            <div class="hero-stat-val gold" id="heroDiv">—</div>
-          </div>
+      <!-- v1.3：摘要卡＋資產配置圓餅圖（比照 投資組合Dashboard_20260711D 風格），
+           純呈現層新增，數字來源跟原本 hero 區塊一樣是 renderOverview() 已經算好的值 -->
+      <div class="summary" id="summaryGrid"></div>
+
+      <div class="alloc-card">
+        <div class="alloc-title">資產配置（依個股）</div>
+        <div class="donut-row">
+          <div class="donut" id="donut"></div>
+          <div class="legend" id="allocLegend"></div>
         </div>
       </div>
 
@@ -176,10 +166,14 @@
       </div>
       <div class="stats-grid" id="statsGrid"></div>
       <div style="padding:14px 16px 0;">
-        <div class="rec-section-title" style="padding:0 0 10px;">各股股息收入</div>
+        <div class="rec-section-title" style="padding:0 0 10px;">各股歷年股利（v1.3，含已出清股票）</div>
         <div class="tbl-wrap" style="margin:0;">
-          <table><thead><tr><th>股票</th><th>累計股息</th><th>佔比</th></tr></thead>
-          <tbody id="statsDivBody"></tbody></table>
+          <table id="divHistTable"><thead><tr id="divHistHeadRow"></tr></thead>
+          <tbody id="divHistBody"></tbody></table>
+        </div>
+        <div style="font-size:11px;color:var(--hint);padding:8px 2px 0;line-height:1.6;">
+          僅列有股利記錄之股票；空白代表當年度無股利記錄；不含股票股利(配股)。<br>
+          資料來源：EventLog「06_各股歷年股利」彙整表，跟個股明細頁「股利」分頁的逐筆記錄是各自獨立的兩份資料。
         </div>
       </div>
       <div style="padding:18px 16px 8px;">
@@ -296,7 +290,7 @@
     <div class="data-panel">
       <div class="data-panel-section">
         <div class="data-panel-title">EventLog 匯入</div>
-        <div class="muted">只會匯入「目前持有」的股票（依 04_股票基本資料的「目前狀態」判斷），已出清股票不受影響。重新匯入會整批覆蓋這些股票原有的交易/股利記錄。</div>
+        <div class="muted">只會匯入「目前持有」的股票（依 04_股票基本資料的「目前狀態」判斷），已出清股票不受影響。重新匯入會整批覆蓋這些股票原有的交易/股利記錄。若檔案含「06_各股歷年股利」分頁，會一併更新「統計」頁的歷年股利表格（含已出清股票）。</div>
         <input type="file" id="eventLogFile" accept=".xlsx" style="margin:8px 0;display:block;">
         <button class="btn-primary" id="btnImportEventLog" onclick="handleEventLogImport()">開始匯入</button>
         <div id="importResultArea"></div>
@@ -432,19 +426,62 @@ function renderOverview(){
   });
 
   const totalPnl=totalMV-totalCost;
-  const totalRet=totalCost>0?totalPnl/totalCost*100:0;
-  const hpc=totalPnl>=0?'red':'green';
-  const hp=document.getElementById('heroPnl');
-  hp.textContent=nt(totalPnl);
-  hp.className='hero-pnl '+hpc;
-  const hpct=document.getElementById('heroPct');
-  hpct.textContent=(totalRet>=0?'+':'')+totalRet.toFixed(2)+'%';
-  hpct.className='hero-pct '+hpc;
-  document.getElementById('heroMV').textContent='NT$'+(totalMV/10000).toFixed(0)+'萬';
-  document.getElementById('heroDiv').textContent='NT$'+fmtN(Math.round(totalDiv));
-  document.getElementById('heroDayPnl').textContent='—';
   document.getElementById('totalPnlLbl').textContent=nt(totalPnl);
+
+  const {totalRealized}=getClosedStocksData();
+  renderSummaryGrid(totalMV,totalCost,totalDiv,totalRealized,stocks.length);
+  renderAllocationDonut(stocks,totalMV);
   renderClosedStocks();
+}
+
+// ══ 摘要卡＋資產配置圓餅圖（v1.3，純呈現層，數字全部沿用既有計算結果）══════
+function renderSummaryGrid(totalMV,totalCost,totalDiv,totalRealized,stockCount){
+  const unrealized=totalMV-totalCost;
+  const unrealizedPct=totalCost>0?unrealized/totalCost*100:0;
+  const cells=[
+    {label:'總資產',value:'NT$'+fmtN(Math.round(totalMV)),sub:stockCount+' 檔持股',cls:''},
+    {label:'總成本',value:'NT$'+fmtN(Math.round(totalCost)),sub:'累計投入',cls:''},
+    {label:'未實現損益',value:nt(unrealized),sub:(unrealizedPct>=0?'+':'')+unrealizedPct.toFixed(2)+'%',cls:unrealized>=0?'red':'green'},
+    {label:'已實現損益',value:nt(totalRealized),sub:'已出清部位',cls:totalRealized>=0?'red':'green'},
+    {label:'累計股息',value:'NT$'+fmtN(Math.round(totalDiv)),sub:'2019~2026',cls:'gold'},
+  ];
+  document.getElementById('summaryGrid').innerHTML=cells.map(c=>
+    `<div class="sum-cell"><div class="sum-label">${c.label}</div><div class="sum-value ${c.cls}">${c.value}</div><div class="sum-sub ${c.cls}">${c.sub}</div></div>`
+  ).join('');
+}
+
+// 依個股分組的圓餅圖色票（非產業別；產業別資料 EventLog 04_股票基本資料 其實已經有，
+// 若之後想改依產業分組，直接讀 stockMaster 的「產業」欄位即可，這次先不用）
+const ALLOC_COLORS=['#c9a15a','#4a9eff','#e5484d','#3fb271','#a15ac9','#e0b93f','#4ec9c0','#c97a5a','#7a9cc9','#8fc95a','#c95a7a','#5ac9b3'];
+function renderAllocationDonut(stocks,totalMV){
+  const donutEl=document.getElementById('donut');
+  const legendEl=document.getElementById('allocLegend');
+  const withMV=stocks
+    .map(s=>({name:s.name,mv:(s.lastPrice||s.avgCost)*s.shares}))
+    .filter(x=>x.mv>0)
+    .sort((a,b)=>b.mv-a.mv);
+  if(!withMV.length||!totalMV){
+    donutEl.style.background='var(--bg3)';
+    donutEl.style.removeProperty('mask');
+    donutEl.style.removeProperty('-webkit-mask');
+    legendEl.innerHTML='<div class="empty" style="padding:8px;">尚無持股資料</div>';
+    return;
+  }
+  let acc=0;const stops=[];
+  withMV.forEach((x,i)=>{
+    const pct=x.mv/totalMV*100;
+    const color=ALLOC_COLORS[i%ALLOC_COLORS.length];
+    stops.push(`${color} ${acc}% ${acc+pct}%`);
+    acc+=pct;
+  });
+  donutEl.style.background=`conic-gradient(${stops.join(',')})`;
+  donutEl.style.setProperty('mask','radial-gradient(circle, transparent 56%, black 57%)');
+  donutEl.style.setProperty('-webkit-mask','radial-gradient(circle, transparent 56%, black 57%)');
+  legendEl.innerHTML=withMV.map((x,i)=>{
+    const color=ALLOC_COLORS[i%ALLOC_COLORS.length];
+    const pct=(x.mv/totalMV*100).toFixed(1);
+    return `<div class="legend-item"><span class="legend-name"><span class="legend-dot" style="background:${color}"></span>${x.name}</span><span class="legend-pct">${pct}%</span></div>`;
+  }).join('');
 }
 
 let closedExpanded = false;
@@ -454,7 +491,9 @@ function toggleClosed(){
   document.getElementById('closedToggleIcon').textContent = closedExpanded ? '▼ 收合' : '▶ 展開';
 }
 
-function renderClosedStocks(){
+// getClosedStocksData()：純函式，彙整「已結清」清單＋已實現損益總額。
+// 被 renderOverview()（摘要卡用）跟 renderClosedStocks()（清單用）共用，避免兩處各算一次會兜不起來。
+function getClosedStocksData(){
   const closed = typeof CLOSED_STOCKS !== 'undefined' ? CLOSED_STOCKS : [];
   // 合併 defaultData 的已結清 + localStorage 裡手動新增的已結清
   const manualClosed = Object.values(DB.stocks).filter(s => s.shares === 0 && s.totalCost !== 0 && s.closed);
@@ -463,16 +502,21 @@ function renderClosedStocks(){
     buyCost: -s.totalCost, sellIncome: s.sellIncome || 0,
     dividends: calcTotalDiv(s), note: ''
   }))];
+  let totalRealized = 0;
+  all.forEach(c => { totalRealized += c.sellIncome + c.buyCost + c.dividends; });
+  return {all, totalRealized};
+}
+
+function renderClosedStocks(){
+  const {all, totalRealized} = getClosedStocksData();
 
   document.getElementById('closedCount').textContent = all.length;
-  let totalRealized = 0;
   const list = document.getElementById('closedList');
   list.innerHTML = '';
 
   all.forEach(c => {
     const pnl = c.sellIncome + c.buyCost + c.dividends;
     const ret = c.buyCost !== 0 ? (pnl / Math.abs(c.buyCost) * 100) : 0;
-    totalRealized += pnl;
     const pc = pnl >= 0 ? 'red' : 'green';
     const card = document.createElement('div');
     card.className = 'scard';
@@ -738,10 +782,29 @@ function renderStats(){
     <div class="stat-card"><div class="stat-card-lbl">目前持有股票數</div><div class="stat-card-val">${stocks.length} 支</div></div>
   `;
 
-  const divByStock=stocks.map(s=>({name:s.name,div:calcTotalDiv(s)})).sort((a,b)=>b.div-a.div);
-  document.getElementById('statsDivBody').innerHTML=divByStock.map(d=>
-    `<tr><td>${d.name}</td><td class="gold">NT$${fmtN(Math.round(d.div))}</td><td class="gold">${totalDiv?(d.div/totalDiv*100).toFixed(1)+'%':'—'}</td></tr>`
-  ).join('');
+  renderDividendHistoryTable();
+}
+
+// ══ 各股歷年股利矩陣（v1.3，Spec：統計頁）═══════════════════
+// 資料來源 DB.dividendHistory（見 parseDividendHistorySheet()），年度欄位依實際資料動態產生，
+// 不寫死 2019~2026，未來年度增加時不用改程式。
+function renderDividendHistoryTable(){
+  const data=DB.dividendHistory||[];
+  const headRow=document.getElementById('divHistHeadRow');
+  const body=document.getElementById('divHistBody');
+  if(!data.length){
+    headRow.innerHTML='<th>股票</th><th>累計</th>';
+    body.innerHTML='<tr><td colspan="2" class="empty">尚無資料，請至「⚙ 資料管理」重新匯入含「06_各股歷年股利」分頁的 EventLog</td></tr>';
+    return;
+  }
+  const years=Object.keys(data[0].years).sort();
+  headRow.innerHTML='<th>股票</th>'+years.map(y=>`<th>${y}</th>`).join('')+'<th>累計</th>';
+  body.innerHTML=data.map(d=>{
+    const closedTag=d.isHeld?'':' <span style="color:var(--hint);">(已出清)</span>';
+    return `<tr><td>${d.ticker}<br><span style="color:var(--muted);font-size:11px;">${d.name}${closedTag}</span></td>`
+      +years.map(y=>`<td>${d.years[y]?fmtN(d.years[y]):'—'}</td>`).join('')
+      +`<td class="gold">${fmtN(d.total)}</td></tr>`;
+  }).join('');
 }
 
 // ══ MODALS ════════════════════════════════════════════
@@ -1334,7 +1397,46 @@ function readEventLogWorkbook(fileBuffer){
   if(!el)throw new Error('01_EventLog 找不到表頭列（EventID），請確認檔案格式沒有變動');
   if(!sm)throw new Error('04_股票基本資料 找不到表頭列（代碼），請確認檔案格式沒有變動');
 
-  return {eventLog:el.rows, knownIssues:ki?ki.rows:[], stockMaster:sm.rows};
+  // v1.3：06_各股歷年股利為選填分頁——舊版 EventLog 檔案可能沒有，缺少時優雅跳過，
+  // 不擋主流程（10 檔持股的匯入不依賴這張表）。
+  const dividendHistoryRaw = wb.Sheets['06_各股歷年股利']
+    ? XLSX.utils.sheet_to_json(wb.Sheets['06_各股歷年股利'],{header:1,raw:true})
+    : null;
+
+  return {eventLog:el.rows, knownIssues:ki?ki.rows:[], stockMaster:sm.rows, dividendHistoryRaw};
+}
+
+// ── 各股歷年股利彙總表解析（06_各股歷年股利，v1.3新增，選填分頁）──
+// 這張表本身已經是彙整好的「股票 x 年度」矩陣（含已出清股票），直接讀取，
+// 不重新從 01_EventLog 逐筆加總，避免兩套彙總邏輯算出不一致的數字。
+// 跟 04_股票基本資料 的「目前狀態」比對後標記 isHeld，供畫面顯示「(已出清)」用。
+// 純函式：不讀寫 DB／localStorage。
+function parseDividendHistorySheet(rows, stockMasterRows){
+  if(!rows)return [];
+  const headerIdx=rows.findIndex(r=>r&&r[0]==='代碼');
+  if(headerIdx===-1)return [];
+  const header=rows[headerIdx];
+  const yearCols=[];
+  header.forEach((h,i)=>{ if(/^\d{4}$/.test(String(h||'').trim()))yearCols.push({year:String(h).trim(),col:i}); });
+  const totalCol=header.findIndex(h=>String(h||'').includes('累計'));
+
+  const statusByTicker={};
+  (stockMasterRows||[]).forEach(r=>{ if(r&&r[0])statusByTicker[r[0]]=r[5]; });
+
+  const data=[];
+  for(let i=headerIdx+1;i<rows.length;i++){
+    const r=rows[i];
+    if(!r || !r[0])break; // 遇到空列代表這張股利矩陣結束（後面接的是配股子表，暫不處理）
+    const ticker=r[0], name=r[1];
+    const years={};
+    yearCols.forEach(yc=>{ years[yc.year]=Number(r[yc.col])||0; });
+    const total = totalCol>=0 ? (Number(r[totalCol])||0) : yearCols.reduce((s,yc)=>s+years[yc.year],0);
+    data.push({ticker, name, years, total, isHeld: statusByTicker[ticker]==='持有中'});
+  }
+  return data.sort((a,b)=>{
+    if(a.isHeld!==b.isHeld)return a.isHeld?-1:1;
+    return b.total-a.total;
+  });
 }
 
 // ── §3.1 篩選目前持有的股票 ──
@@ -1453,8 +1555,13 @@ function importFromEventLog(fileBuffer){
     });
   });
 
+  // v1.3：各股歷年股利彙總表（含已出清股票），跟上面「10 檔持股」的匯入完全獨立，
+  // 存在單獨的 DB.dividendHistory，不會混進 DB.stocks，也不影響 calcHolding()。
+  DB.dividendHistory = parseDividendHistorySheet(parsed.dividendHistoryRaw, parsed.stockMaster);
+
   saveDB();
-  return {success:true, results, skipped:allSkipped, removed, error:null};
+  return {success:true, results, skipped:allSkipped, removed, error:null,
+    dividendHistorySheetFound: !!parsed.dividendHistoryRaw, dividendHistoryCount: DB.dividendHistory.length};
 }
 
 // ── §4 UI Flow ──
@@ -1472,7 +1579,7 @@ async function handleEventLogImport(){
     const buffer=await file.arrayBuffer();
     const result=importFromEventLog(buffer);
     renderImportResult(result);
-    if(result.success){ renderOverview(); if(currentTicker)updateDetail(); }
+    if(result.success){ renderOverview(); if(currentTicker)updateDetail(); renderDividendHistoryTable(); }
   }catch(e){
     resultArea.innerHTML=`<div class="import-error">匯入失敗：${e.message}</div>`;
   }finally{
@@ -1510,6 +1617,10 @@ function renderImportResult(result){
       ℹ️ 已移除 ${result.removed.length} 檔不在目前持有名單內的舊資料：${result.removed.join('、')}
     </div>` : '';
 
+  const divHistHtml = result.dividendHistorySheetFound
+    ? `<div style="font-size:11px;color:var(--muted);margin-top:8px;">ℹ️ 已同步「各股歷年股利」彙總表：共 ${result.dividendHistoryCount} 檔（含已出清股票），可至「統計」頁查看</div>`
+    : `<div style="font-size:11px;color:var(--muted);margin-top:8px;">⚠️ 這份 EventLog 沒有「06_各股歷年股利」分頁，「統計」頁的歷年股利表格將維持原狀（不會清空既有資料）</div>`;
+
   el.innerHTML=`
     <div style="margin-top:8px;font-size:12px;color:var(--muted);">匯入完成，共處理 ${result.results.length} 檔持股</div>
     <table class="import-result-table">
@@ -1517,12 +1628,16 @@ function renderImportResult(result){
       <tbody>${rows}</tbody>
     </table>
     ${skipHtml}
-    ${removedHtml}`;
+    ${removedHtml}
+    ${divHistHtml}`;
 }
 
 // ══ BOOT ══════════════════════════════════════════════
 (function boot(){
   const result=loadDB();
+  // v1.3：既有 localStorage 使用者（尚未重新匯入過）不會有這個新欄位，防呆補上空陣列，
+  // 避免 renderDividendHistoryTable() 讀到 undefined。
+  DB.dividendHistory = DB.dividendHistory || [];
   if(result && result.migrated){
     if(result.success){
       showMigrateBanner('success','資料升級完成',2000);

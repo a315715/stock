@@ -4,7 +4,10 @@
 // 鴻海2023~2025股利使用集保實際入帳總額（最權威數字）
 // 更新日期：2026/07/01
 
-const DEFAULT = {stocks:{
+// dividendHistory：v1.3 新增，「各股歷年股利」矩陣（含已出清股票），來源為
+// EventLog 的「06_各股歷年股利」分頁，跟 stocks[].dividends[] 是獨立的兩份資料，
+// 互不影響。首次使用／清除 localStorage 時預設為空陣列，匯入 EventLog 後才會有資料。
+const DEFAULT = {dividendHistory:[], stocks:{
 
   // ── 鴻海 2317 ────────────────────────────────────────
   '2317':{
