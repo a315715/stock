@@ -44,14 +44,6 @@
       </div>
       <div id="stockList"></div>
 
-      <div class="alloc-card">
-        <div class="alloc-title">資產配置（依個股）</div>
-        <div class="donut-row">
-          <div class="donut" id="donut"></div>
-          <div class="legend" id="allocLegend"></div>
-        </div>
-      </div>
-
       <div class="alloc-card" id="moversCard">
         <div class="alloc-title">今日漲跌幅排行</div>
         <div class="movers-empty" id="moversEmpty" style="display:none;">尚無漲跌資料，請先按上方「↻ 全部更新」抓取股價</div>
@@ -64,6 +56,14 @@
             <div class="movers-lbl green">▼ 跌幅最大</div>
             <div id="topLosers"></div>
           </div>
+        </div>
+      </div>
+
+      <div class="alloc-card">
+        <div class="alloc-title">資產配置（依個股）</div>
+        <div class="donut-row">
+          <div class="donut" id="donut"></div>
+          <div class="legend" id="allocLegend"></div>
         </div>
       </div>
 
@@ -486,6 +486,8 @@ function renderOverview(){
 
   const totalRealized=getTotalRealizedPnl();
   renderSummaryGrid(totalMV,totalCost,totalDiv,totalRealized,stocks.length);
+  // v1.6：畫面順序改成「今日漲跌幅排行」在「資產配置」上面，呼叫順序跟著對調
+  // （純習慣一致，兩個函式互相獨立，誰先誰後不影響各自輸出）
   renderMovers(stocks);
   renderAllocationDonut(stocks,totalMV);
   renderClosedStocks();

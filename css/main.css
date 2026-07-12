@@ -34,14 +34,11 @@ body{color:var(--text);font-family:-apple-system,"SF Pro Display","Helvetica Neu
 /* pages */
 .page{display:none;}.page.on{display:block;}
 
-/* ── OVERVIEW：摘要卡（v1.3，比照 Dashboard 風格；v1.4 放大字級）── */
-.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1px;
-  background:var(--bd);border:1px solid var(--bd);border-radius:var(--radius);overflow:hidden;
-  margin:16px 16px 0;}
-.sum-cell{background:var(--bg1);padding:15px 12px;min-width:0;}
-/* 5 格摘要卡在窄螢幕通常會排成 2 欄，最後一格單獨落單時撐滿整列，
-   避免空白網格格子露出容器底色（看起來像多一個空卡片）*/
-.sum-cell:nth-last-child(1):nth-child(odd){grid-column:1 / -1;}
+/* ── OVERVIEW：摘要卡（v1.3，比照 Dashboard 風格；v1.4 放大字級；
+   v1.6 拿掉格線/外框，改用留白分隔，比照 v1.2.1 的扁平呈現）── */
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+  column-gap:20px;row-gap:18px;margin:16px 16px 0;}
+.sum-cell{min-width:0;}
 .sum-label{font-size:12px;color:var(--hint);margin-bottom:7px;}
 /* v1.4 修正：金額字串（如 NT$20,400,228）沒有空白可斷行，字級調大後在窄卡片裡會被
    父層 overflow:hidden 直接切掉、看起來像數字少了幾碼。overflow-wrap:anywhere 讓它
