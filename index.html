@@ -12,18 +12,42 @@
 
   <div class="topbar">
     <span class="topbar-title" id="topTitle">台股損益</span>
-    <button class="topbar-btn" onclick="openDataPanel()" style="margin-right:8px;" title="資料管理">⚙</button>
-    <button class="topbar-btn" id="topBtnRefresh" onclick="fetchAllPrices()" style="margin-right:8px;">↻ 全部更新</button>
-    <button class="topbar-btn" id="topBtn" onclick="topAction()">＋ 新增股票</button>
+    <button class="topbar-btn topbar-btn-icon" onclick="openDataPanel()" style="margin-right:8px;" title="資料管理">⚙</button>
+    <button class="topbar-btn topbar-btn-icon" id="topBtnRefresh" onclick="fetchAllPrices()" style="margin-right:8px;" title="全部更新">↻</button>
+    <!-- v2.0：新增股票搬到「記錄」頁，總覽頁（預設分頁）初始不顯示這顆按鈕，
+         showNav() 切換分頁時會依頁面決定顯示/隱藏與文字/onclick -->
+    <button class="topbar-btn topbar-btn-icon" id="topBtn" onclick="topAction()" title="新增股票" style="display:none;">＋</button>
   </div>
 
   <div class="content" id="mainContent">
 
     <!-- ══ OVERVIEW ══ -->
     <div class="page on" id="pageOverview">
-      <!-- v1.3/1.4：摘要卡＋資產配置圓餅圖＋今日漲跌排行（比照 投資組合Dashboard_20260711D 風格），
-           純呈現層新增，數字來源都是 renderOverview() 已經算好的值 -->
-      <div class="summary" id="summaryGrid"></div>
+      <!-- v2.0：摘要卡改成 Hero（大數字）＋副標＋3欄小字，比照 v1.2.1 版型。
+           資產配置圓餅圖／今日漲跌排行卡片結構不變（v1.3 新增），數字來源都是
+           renderOverview() 已經算好的值 -->
+      <div class="hero">
+        <div class="hero-tag" id="heroTag">未實現損益</div>
+        <div>
+          <span class="hero-pnl" id="heroPnl">—</span>
+          <span class="hero-pct" id="heroPct"></span>
+        </div>
+        <div class="hero-sub" id="heroSub"></div>
+        <div class="hero-row">
+          <div class="hero-stat">
+            <div class="hero-stat-lbl">總資產</div>
+            <div class="hero-stat-val" id="heroMV">—</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-lbl">已實現損益</div>
+            <div class="hero-stat-val" id="heroRealized">—</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-lbl">累計股息</div>
+            <div class="hero-stat-val gold" id="heroDiv">—</div>
+          </div>
+        </div>
+      </div>
 
       <!-- 含息／不含息 報酬率切換（v1.4），影響摘要卡的損益格跟下面持股列表每檔的損益% -->
       <div class="toolbar-row" id="retToggle">
@@ -341,27 +365,30 @@ let editDivKey=null;
 
 // ══ NAV ══════════════════════════════════════════════
 function setRefreshBtnVisible(visible){
-  document.getElementById('topBtnRefresh').style.display = visible ? 'inline-block' : 'none';
+  document.getElementById('topBtnRefresh').style.display = visible ? 'flex' : 'none';
 }
 function showNav(name,el){
   document.querySelectorAll('.bnav').forEach(b=>b.classList.remove('on'));
   el.classList.add('on');
   if(name==='Overview'){
     document.getElementById('topTitle').textContent='台股損益';
-    document.getElementById('topBtn').textContent='＋ 新增股票';
-    document.getElementById('topBtn').onclick=openAddStock;
+    // v2.0：新增股票搬到「記錄」頁，總覽頁頂部不再顯示這顆按鈕
+    document.getElementById('topBtn').style.display='none';
     setRefreshBtnVisible(true);
     showPage('Overview');
     renderOverview();
   } else if(name==='Records'){
     document.getElementById('topTitle').textContent='記錄';
-    document.getElementById('topBtn').textContent='';
+    // v2.0：新增股票入口搬來這裡（純圖示「＋」）
+    document.getElementById('topBtn').textContent='＋';
+    document.getElementById('topBtn').onclick=openAddStock;
+    document.getElementById('topBtn').style.display='flex';
     setRefreshBtnVisible(false);
     showPage('Records');
     renderRecentTx();
   } else if(name==='Stats'){
     document.getElementById('topTitle').textContent='統計';
-    document.getElementById('topBtn').textContent='';
+    document.getElementById('topBtn').style.display='none';
     setRefreshBtnVisible(false);
     showPage('Stats');
     renderStats();
@@ -380,8 +407,9 @@ function openDetail(ticker){
   document.getElementById('dTicker').textContent=s.exchange+' · '+s.ticker+(s.calcMode==='tx' ? '  🔄 交易計算模式' : '  📌 手動總表模式');
   renderDetailHint(s);
   document.getElementById('topTitle').textContent=s.name;
-  document.getElementById('topBtn').textContent='✎ 編輯';
+  document.getElementById('topBtn').textContent='✎';
   document.getElementById('topBtn').onclick=()=>openEditStock(ticker);
+  document.getElementById('topBtn').style.display='flex';
   setRefreshBtnVisible(false);
   showPage('Detail');
   document.querySelectorAll('.dtab').forEach((t,i)=>{t.classList.toggle('on',i===0);});
@@ -393,8 +421,8 @@ function openDetail(ticker){
 function goBack(){
   currentTicker=null;
   document.getElementById('topTitle').textContent='台股損益';
-  document.getElementById('topBtn').textContent='＋ 新增股票';
-  document.getElementById('topBtn').onclick=openAddStock;
+  // v2.0：回總覽頁不再顯示新增股票按鈕（已搬到記錄頁）
+  document.getElementById('topBtn').style.display='none';
   setRefreshBtnVisible(true);
   showPage('Overview');
   renderOverview();
@@ -485,7 +513,7 @@ function renderOverview(){
   document.getElementById('totalPnlLbl').textContent=nt(totalPnl);
 
   const totalRealized=getTotalRealizedPnl();
-  renderSummaryGrid(totalMV,totalCost,totalDiv,totalRealized,stocks.length);
+  renderHero(totalMV,totalCost,totalDiv,totalRealized,stocks.length);
   // v1.6：畫面順序改成「今日漲跌幅排行」在「資產配置」上面，呼叫順序跟著對調
   // （純習慣一致，兩個函式互相獨立，誰先誰後不影響各自輸出）
   renderMovers(stocks);
@@ -503,21 +531,29 @@ function fmtMoney(n){
   if(abs>=10000)return (n/10000).toFixed(1)+'萬';
   return fmtN(Math.round(n));
 }
-function renderSummaryGrid(totalMV,totalCost,totalDiv,totalRealized,stockCount){
+// v2.0：摘要卡改成 Hero（未實現損益或含息損益大數字）＋副標（總成本/檔數）
+// ＋3欄小字（總資產/已實現損益/累計股息），取代 v1.6 的 5 格網格 renderSummaryGrid()。
+// 含息／不含息切換（returnMode）邏輯完全沿用 v1.4 以來的做法。
+function renderHero(totalMV,totalCost,totalDiv,totalRealized,stockCount){
   const basePnl=totalMV-totalCost;
   const unrealized=returnMode==='total' ? basePnl+totalDiv : basePnl;
   const unrealizedPct=totalCost>0?unrealized/totalCost*100:0;
-  const pnlLabel=returnMode==='total' ? '損益（含息）' : '未實現損益';
-  const cells=[
-    {label:'總資產',value:'NT$'+fmtMoney(totalMV),sub:stockCount+' 檔持股',cls:''},
-    {label:'總成本',value:'NT$'+fmtMoney(totalCost),sub:'累計投入',cls:''},
-    {label:pnlLabel,value:nt(unrealized),sub:(unrealizedPct>=0?'+':'')+unrealizedPct.toFixed(2)+'%',cls:unrealized>=0?'red':'green'},
-    {label:'已實現損益',value:nt(totalRealized),sub:'已出清部位',cls:totalRealized>=0?'red':'green'},
-    {label:'累計股息',value:'NT$'+fmtMoney(totalDiv),sub:'2019~2026',cls:'gold'},
-  ];
-  document.getElementById('summaryGrid').innerHTML=cells.map(c=>
-    `<div class="sum-cell"><div class="sum-label">${c.label}</div><div class="sum-value ${c.cls}">${c.value}</div><div class="sum-sub ${c.cls}">${c.sub}</div></div>`
-  ).join('');
+  const pc=unrealized>=0?'red':'green';
+
+  document.getElementById('heroTag').textContent=returnMode==='total' ? '損益（含息）' : '未實現損益';
+  const hp=document.getElementById('heroPnl');
+  hp.textContent=nt(unrealized);
+  hp.className='hero-pnl '+pc;
+  const hpct=document.getElementById('heroPct');
+  hpct.textContent=(unrealizedPct>=0?'+':'')+unrealizedPct.toFixed(2)+'%';
+  hpct.className='hero-pct '+pc;
+
+  document.getElementById('heroSub').textContent=stockCount+' 檔持股．累計成本 NT$'+fmtMoney(totalCost);
+  document.getElementById('heroMV').textContent='NT$'+fmtMoney(totalMV);
+  const hr=document.getElementById('heroRealized');
+  hr.textContent=nt(totalRealized);
+  hr.className='hero-stat-val '+(totalRealized>=0?'red':'green');
+  document.getElementById('heroDiv').textContent='NT$'+fmtMoney(totalDiv);
 }
 
 // 今日漲跌幅排行（v1.4）：用 s.lastChangePct（fetchPrice()/fetchAllPrices() 抓價時順便存的

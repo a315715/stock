@@ -1,12 +1,13 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{
-  /* v1.3：色票改套 Dashboard 風格（投資組合Dashboard_20260711D）。
-     --blue 保留給互動元件（按鈕/分頁選取/輸入焦點），跟 Dashboard 的
-     金色語意（資料強調）分開，避免整頁都是金色分不清可點擊區域。 */
-  --bg0:#0f1611;--bg1:#161f19;--bg2:#1c2620;--bg3:#243029;
-  --bd:#2a362f;--bd2:#3a4a40;
-  --text:#e8ede9;--muted:#8fa398;--hint:#5c6f64;
-  --red:#e5484d;--green:#3fb271;--gold:#c9a15a;--blue:#4a9eff;
+  /* v2.0：色票改回 v1.2.1 的青綠色系（取代 v1.3~v1.6 的 Dashboard 深綠金風）。
+     --gold 這次不是 v1.2.1 原本的鮮黃 #f0b429，是柔和棕金色 #c9a876——
+     用示意 mockup 給你比較過 A(拿掉金色)/B(柔和棕金)/C(統一藍色) 三個方案，
+     選了 B，維持「金色＝股息/強調用」語意但不會太搶眼。 */
+  --bg0:#0e0f11;--bg1:#16181c;--bg2:#1e2127;--bg3:#262b33;
+  --bd:#2e3340;--bd2:#3a4050;
+  --text:#e8eaf0;--muted:#7a8090;--hint:#4a5060;
+  --red:#ef5350;--green:#26a69a;--gold:#c9a876;--blue:#4a9eff;
   --blue-bg:rgba(74,158,255,0.12);
   --mono:'JetBrains Mono','SF Mono','Courier New',monospace;
   --radius:10px;
@@ -20,6 +21,8 @@ body{color:var(--text);font-family:-apple-system,"SF Pro Display","Helvetica Neu
 .topbar{flex-shrink:0;display:flex;align-items:center;padding:14px 16px 10px;border-bottom:1px solid var(--bd);background:var(--bg0);position:sticky;top:0;z-index:50;}
 .topbar-title{font-size:18px;font-weight:700;flex:1;}
 .topbar-btn{font-size:13px;padding:7px 14px;border-radius:8px;border:1px solid var(--bd2);background:var(--bg2);color:var(--blue);cursor:pointer;font-weight:500;-webkit-tap-highlight-color:transparent;}
+/* v2.0：頂部按鈕改純圖示（拿掉文字），正方形置中，取代原本文字按鈕的寬 padding */
+.topbar-btn-icon{width:34px;height:34px;padding:0;display:flex;align-items:center;justify-content:center;font-size:16px;}
 .topbar-btn:active{background:var(--bg3);}
 
 /* content */
@@ -34,17 +37,20 @@ body{color:var(--text);font-family:-apple-system,"SF Pro Display","Helvetica Neu
 /* pages */
 .page{display:none;}.page.on{display:block;}
 
-/* ── OVERVIEW：摘要卡（v1.3，比照 Dashboard 風格；v1.4 放大字級；
-   v1.6 拿掉格線/外框，改用留白分隔，比照 v1.2.1 的扁平呈現）── */
-.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
-  column-gap:20px;row-gap:18px;margin:16px 16px 0;}
-.sum-cell{min-width:0;}
-.sum-label{font-size:12px;color:var(--hint);margin-bottom:7px;}
-/* v1.4 修正：金額字串（如 NT$20,400,228）沒有空白可斷行，字級調大後在窄卡片裡會被
-   父層 overflow:hidden 直接切掉、看起來像數字少了幾碼。overflow-wrap:anywhere 讓它
-   在真的放不下時允許換行，不會再被裁切成錯誤數字。 */
-.sum-value{font-family:var(--mono);font-size:21px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.25;color:var(--text);overflow-wrap:anywhere;}
-.sum-sub{font-family:var(--mono);font-size:12px;margin-top:5px;color:var(--muted);}
+/* ── OVERVIEW：摘要卡（v2.0 改成 Hero＋副標＋3欄小字，比照 v1.2.1 版型，
+   取代 v1.3~v1.6 的 5 格網格）── */
+.hero{padding:20px 16px 16px;border-bottom:1px solid var(--bd);}
+.hero-tag{font-size:12px;color:var(--muted);margin-bottom:6px;}
+/* v1.4 修正、這次延續：長數字沒有空白可斷行，overflow-wrap:anywhere 避免
+   放不下時被裁切成錯誤數字（而不是縮小字級犧牲可讀性）。 */
+.hero-pnl{font-size:44px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;letter-spacing:-0.5px;overflow-wrap:anywhere;}
+.hero-pct{font-size:20px;font-weight:600;margin-left:10px;vertical-align:middle;}
+.hero-sub{font-size:13px;color:var(--hint);margin-top:8px;}
+.hero-row{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-top:14px;border-top:1px solid var(--bd);padding-top:12px;}
+.hero-stat{text-align:center;padding:0 4px;min-width:0;}
+.hero-stat:not(:last-child){border-right:1px solid var(--bd);}
+.hero-stat-lbl{font-size:12px;color:var(--hint);margin-bottom:4px;}
+.hero-stat-val{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
 
 /* ── OVERVIEW：報酬率／排序切換工具列（v1.4）── */
 .toolbar-row{padding:8px 16px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
