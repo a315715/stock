@@ -21,9 +21,28 @@
 
     <!-- ══ OVERVIEW ══ -->
     <div class="page on" id="pageOverview">
-      <!-- v1.3：摘要卡＋資產配置圓餅圖（比照 投資組合Dashboard_20260711D 風格），
-           純呈現層新增，數字來源跟原本 hero 區塊一樣是 renderOverview() 已經算好的值 -->
+      <!-- v1.3/1.4：摘要卡＋資產配置圓餅圖＋今日漲跌排行（比照 投資組合Dashboard_20260711D 風格），
+           純呈現層新增，數字來源都是 renderOverview() 已經算好的值 -->
       <div class="summary" id="summaryGrid"></div>
+
+      <!-- 含息／不含息 報酬率切換（v1.4），影響摘要卡的損益格跟下面持股列表每檔的損益% -->
+      <div class="toolbar-row" id="retToggle">
+        <span class="step-lbl">報酬率</span>
+        <button class="step-btn on" data-mode="price" onclick="setReturnMode('price')">不含息</button>
+        <button class="step-btn" data-mode="total" onclick="setReturnMode('total')">含息</button>
+      </div>
+
+      <div class="list-hd">
+        <span class="list-hd-l">持股列表 (<span id="stockCount">0</span>)</span>
+        <span class="list-hd-r">總損益: <span id="totalPnlLbl">—</span></span>
+      </div>
+      <div class="toolbar-row" id="sortToggle">
+        <span class="step-lbl">排序</span>
+        <button class="step-btn on" data-sort="mv" onclick="setSortBy('mv')">市值</button>
+        <button class="step-btn" data-sort="cost" onclick="setSortBy('cost')">總成本</button>
+        <button class="step-btn" data-sort="name" onclick="setSortBy('name')">名稱</button>
+      </div>
+      <div id="stockList"></div>
 
       <div class="alloc-card">
         <div class="alloc-title">資產配置（依個股）</div>
@@ -33,18 +52,28 @@
         </div>
       </div>
 
-      <div class="list-hd">
-        <span class="list-hd-l">庫存股 (<span id="stockCount">0</span>)</span>
-        <span class="list-hd-r">總損益: <span id="totalPnlLbl">—</span></span>
+      <div class="alloc-card" id="moversCard">
+        <div class="alloc-title">今日漲跌幅排行</div>
+        <div class="movers-empty" id="moversEmpty" style="display:none;">尚無漲跌資料，請先按上方「↻ 全部更新」抓取股價</div>
+        <div class="movers">
+          <div>
+            <div class="movers-lbl red">▲ 漲幅最大</div>
+            <div id="topGainers"></div>
+          </div>
+          <div>
+            <div class="movers-lbl green">▼ 跌幅最大</div>
+            <div id="topLosers"></div>
+          </div>
+        </div>
       </div>
-      <div id="stockList"></div>
 
       <!-- 已結清 -->
       <div class="list-hd" style="margin-top:8px;cursor:pointer;" onclick="toggleClosed()">
         <span class="list-hd-l">已結清 (<span id="closedCount">0</span>) <span id="closedToggleIcon" style="font-size:11px;color:var(--hint);">▶ 展開</span></span>
-        <span class="list-hd-r">已實現損益: <span id="closedPnlLbl">—</span></span>
+        <span class="list-hd-r">已出清損益: <span id="closedPnlLbl">—</span></span>
       </div>
       <div id="closedList" style="display:none;"></div>
+      <div style="font-size:11px;color:var(--hint);padding:4px 16px 0;">僅列已出清（目前 0 股）持股；目前持有股票過去已實現的部分，已計入上方摘要卡「已實現損益」。</div>
 
       <div style="height:8px;"></div>
     </div>
@@ -290,7 +319,7 @@
     <div class="data-panel">
       <div class="data-panel-section">
         <div class="data-panel-title">EventLog 匯入</div>
-        <div class="muted">只會匯入「目前持有」的股票（依 04_股票基本資料的「目前狀態」判斷），已出清股票不受影響。重新匯入會整批覆蓋這些股票原有的交易/股利記錄。若檔案含「06_各股歷年股利」分頁，會一併更新「統計」頁的歷年股利表格（含已出清股票）。</div>
+        <div class="muted">只會匯入「目前持有」的股票（依 04_股票基本資料的「目前狀態」判斷），已出清股票不受影響。重新匯入會整批覆蓋這些股票原有的交易/股利記錄。若檔案含「06_各股歷年股利」分頁，會一併更新「統計」頁的歷年股利表格（含已出清股票）；若含「02_損益總表」分頁，會一併更新「已實現損益」權威數字。</div>
         <input type="file" id="eventLogFile" accept=".xlsx" style="margin:8px 0;display:block;">
         <button class="btn-primary" id="btnImportEventLog" onclick="handleEventLogImport()">開始匯入</button>
         <div id="importResultArea"></div>
@@ -381,27 +410,54 @@ function showDtab(name,el){
 }
 
 // ══ OVERVIEW ══════════════════════════════════════════
+// v1.4：報酬率算法（含息／不含息）跟持股列表排序方式，是使用者可切換的顯示選項，
+// 不是資料，所以用一般變數保存就好，不寫進 DB／localStorage（重整頁面會回到預設值）。
+let returnMode='price';   // 'price'=不含息（原本行為）｜'total'=含息（+累計股利）
+let stockSortBy='mv';     // 'mv'=依市值｜'cost'=依總成本｜'name'=依名稱
+
+function setReturnMode(mode){
+  returnMode=mode;
+  document.querySelectorAll('#retToggle .step-btn').forEach(b=>b.classList.toggle('on',b.dataset.mode===mode));
+  renderOverview();
+}
+function setSortBy(key){
+  stockSortBy=key;
+  document.querySelectorAll('#sortToggle .step-btn').forEach(b=>b.classList.toggle('on',b.dataset.sort===key));
+  renderOverview();
+}
+
 function renderOverview(){
   const stocks=Object.values(DB.stocks);
   document.getElementById('stockCount').textContent=stocks.length;
   let totalMV=0,totalCost=0,totalDiv=0;
-  const list=document.getElementById('stockList');
-  list.innerHTML='';
 
-  stocks.forEach(s=>{
+  // 先把每檔股票要顯示的數字都算好，再依 stockSortBy 排序，最後才建卡片——
+  // 這樣排序順序完全不影響總計數字（總計本來就跟顯示順序無關）。
+  const records=stocks.map(s=>{
     const price=s.lastPrice||s.avgCost;
     const mv=price*s.shares;
-    const pnl=mv-s.totalCost;
-    const ret=s.totalCost>0?pnl/s.totalCost*100:0;
     const div=calcTotalDiv(s);
+    const basePnl=mv-s.totalCost;
+    const pnl=returnMode==='total' ? basePnl+div : basePnl;
+    const ret=s.totalCost>0?pnl/s.totalCost*100:0;
     totalMV+=mv; totalCost+=s.totalCost; totalDiv+=div;
-    const noData=s.totalCost===0 && s.shares===0;
+    return {s, price, mv, pnl, ret, noData:s.totalCost===0 && s.shares===0};
+  });
+  records.sort((a,b)=>{
+    if(stockSortBy==='mv')return b.mv-a.mv;
+    if(stockSortBy==='cost')return b.s.totalCost-a.s.totalCost;
+    return a.s.name.localeCompare(b.s.name,'zh-Hant');
+  });
 
+  const list=document.getElementById('stockList');
+  list.innerHTML='';
+  records.forEach(r=>{
+    const s=r.s, price=r.price, pnl=r.pnl, ret=r.ret;
     const pc=pnl>=0?'red':'green';
     const card=document.createElement('div');
     card.className='scard';
     card.onclick=()=>openDetail(s.ticker);
-    card.innerHTML=noData ? `
+    card.innerHTML=r.noData ? `
       <div class="scard-left">
         <div class="scard-name">${s.name}</div>
         <div class="scard-shares" style="color:var(--hint);">${s.calcError?'⚠️ 交易明細有誤':'尚無交易記錄'}</div>
@@ -425,29 +481,54 @@ function renderOverview(){
     list.appendChild(card);
   });
 
-  const totalPnl=totalMV-totalCost;
+  const totalPnl=returnMode==='total' ? (totalMV-totalCost+totalDiv) : (totalMV-totalCost);
   document.getElementById('totalPnlLbl').textContent=nt(totalPnl);
 
-  const {totalRealized}=getClosedStocksData();
+  const totalRealized=getTotalRealizedPnl();
   renderSummaryGrid(totalMV,totalCost,totalDiv,totalRealized,stocks.length);
+  renderMovers(stocks);
   renderAllocationDonut(stocks,totalMV);
   renderClosedStocks();
 }
 
-// ══ 摘要卡＋資產配置圓餅圖（v1.3，純呈現層，數字全部沿用既有計算結果）══════
+// ══ 摘要卡＋資產配置圓餅圖＋今日漲跌（v1.3/1.4，純呈現層，數字全部沿用既有計算結果）══
+// v1.4：金額一律用 萬/億 縮寫（跟原本 hero 區塊的「持股市值」寫法一致），
+// 不用千分位逗號的完整數字——字級調大之後，完整數字在窄卡片裡放不下，縮寫後字級可以
+// 維持大、也不會有換行/裁切問題。
+function fmtMoney(n){
+  const abs=Math.abs(n);
+  if(abs>=100000000)return (n/100000000).toFixed(2)+'億';
+  if(abs>=10000)return (n/10000).toFixed(1)+'萬';
+  return fmtN(Math.round(n));
+}
 function renderSummaryGrid(totalMV,totalCost,totalDiv,totalRealized,stockCount){
-  const unrealized=totalMV-totalCost;
+  const basePnl=totalMV-totalCost;
+  const unrealized=returnMode==='total' ? basePnl+totalDiv : basePnl;
   const unrealizedPct=totalCost>0?unrealized/totalCost*100:0;
+  const pnlLabel=returnMode==='total' ? '損益（含息）' : '未實現損益';
   const cells=[
-    {label:'總資產',value:'NT$'+fmtN(Math.round(totalMV)),sub:stockCount+' 檔持股',cls:''},
-    {label:'總成本',value:'NT$'+fmtN(Math.round(totalCost)),sub:'累計投入',cls:''},
-    {label:'未實現損益',value:nt(unrealized),sub:(unrealizedPct>=0?'+':'')+unrealizedPct.toFixed(2)+'%',cls:unrealized>=0?'red':'green'},
+    {label:'總資產',value:'NT$'+fmtMoney(totalMV),sub:stockCount+' 檔持股',cls:''},
+    {label:'總成本',value:'NT$'+fmtMoney(totalCost),sub:'累計投入',cls:''},
+    {label:pnlLabel,value:nt(unrealized),sub:(unrealizedPct>=0?'+':'')+unrealizedPct.toFixed(2)+'%',cls:unrealized>=0?'red':'green'},
     {label:'已實現損益',value:nt(totalRealized),sub:'已出清部位',cls:totalRealized>=0?'red':'green'},
-    {label:'累計股息',value:'NT$'+fmtN(Math.round(totalDiv)),sub:'2019~2026',cls:'gold'},
+    {label:'累計股息',value:'NT$'+fmtMoney(totalDiv),sub:'2019~2026',cls:'gold'},
   ];
   document.getElementById('summaryGrid').innerHTML=cells.map(c=>
     `<div class="sum-cell"><div class="sum-label">${c.label}</div><div class="sum-value ${c.cls}">${c.value}</div><div class="sum-sub ${c.cls}">${c.sub}</div></div>`
   ).join('');
+}
+
+// 今日漲跌幅排行（v1.4）：用 s.lastChangePct（fetchPrice()/fetchAllPrices() 抓價時順便存的
+// prices.json changePct），還沒抓過價的股票沒有這個欄位，篩掉、不會顯示成 0%。
+function renderMovers(stocks){
+  const withChg=stocks.filter(s=>typeof s.lastChangePct==='number');
+  document.getElementById('moversEmpty').style.display=withChg.length?'none':'block';
+  const sorted=[...withChg].sort((a,b)=>b.lastChangePct-a.lastChangePct);
+  const gainers=sorted.filter(s=>s.lastChangePct>0).slice(0,5);
+  const losers=[...sorted].reverse().filter(s=>s.lastChangePct<0).slice(0,5);
+  const rowHtml=s=>`<div class="mover-row"><span>${s.name}</span><span class="${s.lastChangePct>=0?'red':'green'}">${s.lastChangePct>=0?'▲ +':'▼ '}${Math.abs(s.lastChangePct).toFixed(2)}%</span></div>`;
+  document.getElementById('topGainers').innerHTML=gainers.length?gainers.map(rowHtml).join(''):'<div class="mover-row empty-row">—</div>';
+  document.getElementById('topLosers').innerHTML=losers.length?losers.map(rowHtml).join(''):'<div class="mover-row empty-row">—</div>';
 }
 
 // 依個股分組的圓餅圖色票（非產業別；產業別資料 EventLog 04_股票基本資料 其實已經有，
@@ -491,8 +572,15 @@ function toggleClosed(){
   document.getElementById('closedToggleIcon').textContent = closedExpanded ? '▼ 收合' : '▶ 展開';
 }
 
-// getClosedStocksData()：純函式，彙整「已結清」清單＋已實現損益總額。
-// 被 renderOverview()（摘要卡用）跟 renderClosedStocks()（清單用）共用，避免兩處各算一次會兜不起來。
+// getClosedStocksData()：純函式，彙整「已結清」清單（用於清單卡片顯示）。
+// v1.5：每筆的 pnl 優先讀 DB.realizedPnlByTicker（EventLog 02_損益總表 權威數字，
+// 已套用 03_已知事項 校正、平均成本法算好）；查不到（例如手動新增、不在 EventLog
+// 名單內的已結清股票）才退回舊公式 sellIncome+buyCost+dividends。
+// isApprox=true 代表金額（分子）是新的權威數字、但報酬率的分母（buyCost）還是舊資料，
+// 兩者概念不完全一致，畫面要標「約」（ArchitectureV1.5 §4.1 已跟使用者確認採用這個做法）。
+// 注意：這裡回傳的加總只涵蓋「已出清（目前0股）」的股票，範圍比 getTotalRealizedPnl()
+// 窄——鴻海/力成這類目前還持有、但過去也部分賣出過的股票不在這個清單裡，
+// 見 getTotalRealizedPnl() 的說明。
 function getClosedStocksData(){
   const closed = typeof CLOSED_STOCKS !== 'undefined' ? CLOSED_STOCKS : [];
   // 合併 defaultData 的已結清 + localStorage 裡手動新增的已結清
@@ -502,21 +590,51 @@ function getClosedStocksData(){
     buyCost: -s.totalCost, sellIncome: s.sellIncome || 0,
     dividends: calcTotalDiv(s), note: ''
   }))];
-  let totalRealized = 0;
-  all.forEach(c => { totalRealized += c.sellIncome + c.buyCost + c.dividends; });
-  return {all, totalRealized};
+
+  const byTicker = DB.realizedPnlByTicker || {};
+  all.forEach(c => {
+    const legacyPnl = c.sellIncome + c.buyCost + c.dividends;
+    if(typeof byTicker[c.ticker] === 'number'){
+      c.pnl = byTicker[c.ticker];
+      c.isApprox = true;
+    } else {
+      c.pnl = legacyPnl;
+      c.isApprox = false;
+    }
+  });
+  return {all};
+}
+
+// getTotalRealizedPnl()：摘要卡「已實現損益」用的總數（v1.5 新增）。
+// 來源是 DB.realizedPnlByTicker 全部 35 檔加總，含目前持有中但過去曾部分賣出的
+// 股票（如鴻海/力成）——這是刻意的設計，不是 bug：那部分賣掉的價差本來就已經
+// 「入袋」，該算已實現損益，只是股票本身還沒出清，所以不會出現在「已結清」清單裡。
+// 還沒匯入過 EventLog、DB.realizedPnlByTicker 是空物件時，退回舊的「已結清清單加總」
+// 方式，避免顯示 0（理論上不會發生，因為 defaultData.js 已經有種子資料）。
+function getTotalRealizedPnl(){
+  const byTicker = DB.realizedPnlByTicker || {};
+  const keys = Object.keys(byTicker);
+  if(keys.length){
+    return keys.reduce((sum,k)=>sum+byTicker[k], 0);
+  }
+  const {all} = getClosedStocksData();
+  return all.reduce((sum,c)=>sum+c.pnl, 0);
 }
 
 function renderClosedStocks(){
-  const {all, totalRealized} = getClosedStocksData();
+  const {all} = getClosedStocksData();
 
   document.getElementById('closedCount').textContent = all.length;
   const list = document.getElementById('closedList');
   list.innerHTML = '';
 
   all.forEach(c => {
-    const pnl = c.sellIncome + c.buyCost + c.dividends;
-    const ret = c.buyCost !== 0 ? (pnl / Math.abs(c.buyCost) * 100) : 0;
+    const pnl = c.pnl;
+    // buyCost===0 代表沒有歷史買入成本資料可算報酬率（v1.5 補列的 5 檔），
+    // 顯示「—」而不是誤導性的 0.0%
+    const hasCostBasis = c.buyCost !== 0;
+    const ret = hasCostBasis ? (pnl / Math.abs(c.buyCost) * 100) : 0;
+    const retLabel = hasCostBasis ? `${ret>=0?'+':''}${ret.toFixed(1)}%${c.isApprox?'（約）':''}` : '—';
     const pc = pnl >= 0 ? 'red' : 'green';
     const card = document.createElement('div');
     card.className = 'scard';
@@ -528,19 +646,20 @@ function renderClosedStocks(){
       </div>
       <div class="scard-mid" style="text-align:right;">
         <div style="font-size:11px;color:var(--hint);">買入</div>
-        <div style="font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;">NT$${fmtN(Math.abs(c.buyCost))}</div>
+        <div style="font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;">${hasCostBasis?'NT$'+fmtN(Math.abs(c.buyCost)):'—'}</div>
       </div>
       <div class="scard-right">
-        <div class="scard-cost">含息報酬率</div>
+        <div class="scard-cost">已實現損益</div>
         <div class="scard-pnl ${pc}">${nt(pnl)}</div>
-        <div class="scard-pct ${pc}">${ret>=0?'+':''}${ret.toFixed(1)}%</div>
+        <div class="scard-pct ${pc}">${retLabel}</div>
       </div>`;
     list.appendChild(card);
   });
 
+  const totalRealizedClosed = all.reduce((s,c)=>s+c.pnl, 0);
   const lbl = document.getElementById('closedPnlLbl');
-  lbl.textContent = nt(totalRealized);
-  lbl.className = totalRealized >= 0 ? 'red' : 'green';
+  lbl.textContent = nt(totalRealizedClosed);
+  lbl.className = totalRealizedClosed >= 0 ? 'red' : 'green';
 }
 
 // ══ DETAIL ════════════════════════════════════════════
@@ -707,6 +826,9 @@ async function fetchAllPrices(){
     if(info&&info.price){
       s.lastPrice=info.price;
       s.lastPriceTime=updatedTime+' 更新';
+      // v1.4：prices.json（fetch_prices.py）本來就有算 changePct，之前沒存，
+      // 「今日漲跌幅排行」需要這個欄位。
+      s.lastChangePct=typeof info.changePct==='number' ? info.changePct : null;
       okCount++;
     } else {
       failCount++;
@@ -732,7 +854,9 @@ async function fetchPrice(){
     const price=info.price;
     document.getElementById('priceInp').value=price;
     const t=await getPricesUpdatedTime()||'—';
-    s.lastPrice=price;s.lastPriceTime=t+' 更新';saveDB();
+    s.lastPrice=price;s.lastPriceTime=t+' 更新';
+    s.lastChangePct=typeof info.changePct==='number' ? info.changePct : null;
+    saveDB();
     document.getElementById('fDot').className='dot live';
     document.getElementById('fTxt').textContent='已更新';
     document.getElementById('fTime').textContent=t+' 更新';
@@ -1403,7 +1527,36 @@ function readEventLogWorkbook(fileBuffer){
     ? XLSX.utils.sheet_to_json(wb.Sheets['06_各股歷年股利'],{header:1,raw:true})
     : null;
 
-  return {eventLog:el.rows, knownIssues:ki?ki.rows:[], stockMaster:sm.rows, dividendHistoryRaw};
+  // v1.5：02_損益總表 同樣是選填分頁，缺少時優雅跳過。
+  const realizedPnlRaw = wb.Sheets['02_損益總表']
+    ? XLSX.utils.sheet_to_json(wb.Sheets['02_損益總表'],{header:1,raw:true})
+    : null;
+
+  return {eventLog:el.rows, knownIssues:ki?ki.rows:[], stockMaster:sm.rows, dividendHistoryRaw, realizedPnlRaw};
+}
+
+// ── 已實現損益權威數字解析（02_損益總表，v1.5新增，選填分頁）──
+// 純函式：讀 J欄「已實現損益」，回傳 {ticker: 已實現損益} 的物件。讀到「合計」列
+// 就停止（那是加總列，不是個股資料）。涵蓋全部股票（含目前持有中的，過去部分賣出
+// 的價差也算已實現損益，不是只有已出清股票才有）。不重新用平均成本法算一次，
+// 直接信任這張表（已套用 03_已知事項 的驗證校正），避免跟 calcHolding() 各算一套、
+// 兜不起來。
+function parseRealizedPnlSheet(rows){
+  if(!rows)return {};
+  const headerIdx=rows.findIndex(r=>r&&r[0]==='代碼');
+  if(headerIdx===-1)return {};
+  const header=rows[headerIdx];
+  const jCol=header.findIndex(h=>h==='已實現損益');
+  if(jCol===-1)return {};
+
+  const result={};
+  for(let i=headerIdx+1;i<rows.length;i++){
+    const r=rows[i];
+    if(!r||!r[0])continue;
+    if(r[0]==='合計')break;
+    if(typeof r[jCol]==='number')result[r[0]]=Math.round(r[jCol]);
+  }
+  return result;
 }
 
 // ── 各股歷年股利彙總表解析（06_各股歷年股利，v1.3新增，選填分頁）──
@@ -1559,9 +1712,13 @@ function importFromEventLog(fileBuffer){
   // 存在單獨的 DB.dividendHistory，不會混進 DB.stocks，也不影響 calcHolding()。
   DB.dividendHistory = parseDividendHistorySheet(parsed.dividendHistoryRaw, parsed.stockMaster);
 
+  // v1.5：已實現損益權威數字，同樣獨立存放，不影響 DB.stocks／calcHolding()。
+  DB.realizedPnlByTicker = parseRealizedPnlSheet(parsed.realizedPnlRaw);
+
   saveDB();
   return {success:true, results, skipped:allSkipped, removed, error:null,
-    dividendHistorySheetFound: !!parsed.dividendHistoryRaw, dividendHistoryCount: DB.dividendHistory.length};
+    dividendHistorySheetFound: !!parsed.dividendHistoryRaw, dividendHistoryCount: DB.dividendHistory.length,
+    realizedPnlSheetFound: !!parsed.realizedPnlRaw, realizedPnlCount: Object.keys(DB.realizedPnlByTicker).length};
 }
 
 // ── §4 UI Flow ──
@@ -1621,6 +1778,10 @@ function renderImportResult(result){
     ? `<div style="font-size:11px;color:var(--muted);margin-top:8px;">ℹ️ 已同步「各股歷年股利」彙總表：共 ${result.dividendHistoryCount} 檔（含已出清股票），可至「統計」頁查看</div>`
     : `<div style="font-size:11px;color:var(--muted);margin-top:8px;">⚠️ 這份 EventLog 沒有「06_各股歷年股利」分頁，「統計」頁的歷年股利表格將維持原狀（不會清空既有資料）</div>`;
 
+  const realizedHtml = result.realizedPnlSheetFound
+    ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;">ℹ️ 已同步「已實現損益」權威數字：共 ${result.realizedPnlCount} 檔（含目前持有中股票過去已實現的部分）</div>`
+    : `<div style="font-size:11px;color:var(--muted);margin-top:4px;">⚠️ 這份 EventLog 沒有「02_損益總表」分頁，「已實現損益」將維持原狀（不會清空既有資料）</div>`;
+
   el.innerHTML=`
     <div style="margin-top:8px;font-size:12px;color:var(--muted);">匯入完成，共處理 ${result.results.length} 檔持股</div>
     <table class="import-result-table">
@@ -1629,7 +1790,8 @@ function renderImportResult(result){
     </table>
     ${skipHtml}
     ${removedHtml}
-    ${divHistHtml}`;
+    ${divHistHtml}
+    ${realizedHtml}`;
 }
 
 // ══ BOOT ══════════════════════════════════════════════
@@ -1638,6 +1800,9 @@ function renderImportResult(result){
   // v1.3：既有 localStorage 使用者（尚未重新匯入過）不會有這個新欄位，防呆補上空陣列，
   // 避免 renderDividendHistoryTable() 讀到 undefined。
   DB.dividendHistory = DB.dividendHistory || [];
+  // v1.5：既有 localStorage 使用者（尚未重新匯入過）不會有這個新欄位，防呆補上空物件，
+  // 避免 getTotalRealizedPnl()／getClosedStocksData() 讀到 undefined。
+  DB.realizedPnlByTicker = DB.realizedPnlByTicker || {};
   if(result && result.migrated){
     if(result.success){
       showMigrateBanner('success','資料升級完成',2000);

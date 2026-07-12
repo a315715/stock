@@ -5,9 +5,49 @@
 // 更新日期：2026/07/01
 
 // dividendHistory：v1.3 新增，「各股歷年股利」矩陣（含已出清股票），來源為
-// EventLog 的「06_各股歷年股利」分頁，跟 stocks[].dividends[] 是獨立的兩份資料，
-// 互不影響。首次使用／清除 localStorage 時預設為空陣列，匯入 EventLog 後才會有資料。
-const DEFAULT = {dividendHistory:[], stocks:{
+// EventLog 的「06_各股歷年股利」分頁（2026/07/11C 版），跟 stocks[].dividends[] 是獨立的
+// 兩份資料，互不影響。v1.4：改成跟其他持股/股利資料一樣先預先種好，第一次打開就看得到，
+// 不用特地為了看這頁而去匯入一次 EventLog；之後重新匯入 EventLog 一樣會覆蓋更新這份資料。
+const DIVIDEND_HISTORY_DEFAULT=[
+  {ticker:'2317',  name:'鴻海',           isHeld:true,  total:1983130, years:{'2019':0,'2020':16800,'2021':41000,'2022':53768,'2023':306092,'2024':666034,'2025':899436,'2026':0}},
+  {ticker:'2535',  name:'達欣工',         isHeld:true,  total:100334,  years:{'2019':1621,'2020':0,'2021':0,'2022':0,'2023':0,'2024':23079,'2025':33761,'2026':41873}},
+  {ticker:'6239',  name:'力成',           isHeld:true,  total:36340,   years:{'2019':9600,'2020':0,'2021':0,'2022':0,'2023':16870,'2024':2870,'2025':7000,'2026':0}},
+  {ticker:'00937B',name:'群益ESG投等債20+',isHeld:true, total:32641,   years:{'2019':0,'2020':0,'2021':0,'2022':0,'2023':0,'2024':6704,'2025':19169,'2026':6768}},
+  {ticker:'2890',  name:'永豐金',         isHeld:true,  total:29315,   years:{'2019':0,'2020':0,'2021':0,'2022':0,'2023':2059,'2024':10553,'2025':16703,'2026':0}},
+  {ticker:'00878', name:'國泰永續高股息', isHeld:true,  total:29150,   years:{'2019':0,'2020':0,'2021':0,'2022':0,'2023':4850,'2024':10050,'2025':8850,'2026':5400}},
+  {ticker:'2881',  name:'富邦金',         isHeld:true,  total:27819,   years:{'2019':0,'2020':0,'2021':0,'2022':0,'2023':1188,'2024':8675,'2025':17956,'2026':0}},
+  {ticker:'2303',  name:'聯電',           isHeld:true,  total:9450,    years:{'2019':0,'2020':0,'2021':0,'2022':0,'2023':3600,'2024':3000,'2025':2850,'2026':0}},
+  {ticker:'5880',  name:'合庫金',         isHeld:true,  total:7037,    years:{'2019':0,'2020':0,'2021':0,'2022':0,'2023':2060,'2024':2877,'2025':2100,'2026':0}},
+  {ticker:'0056',  name:'元大高股息',     isHeld:true,  total:3680,    years:{'2019':547,'2020':486,'2021':547,'2022':2100,'2023':0,'2024':0,'2025':0,'2026':0}},
+  {ticker:'1101',  name:'台泥',           isHeld:false, total:9084,    years:{'2019':0,'2020':0,'2021':6736,'2022':2348,'2023':0,'2024':0,'2025':0,'2026':0}},
+  {ticker:'2882',  name:'國泰金',         isHeld:false, total:6400,    years:{'2019':0,'2020':0,'2021':0,'2022':0,'2023':900,'2024':2000,'2025':3500,'2026':0}},
+  {ticker:'00687B',name:'國泰20年美債',   isHeld:false, total:3764,    years:{'2019':0,'2020':0,'2021':0,'2022':0,'2023':0,'2024':3064,'2025':700,'2026':0}},
+  {ticker:'00725B',name:'國泰投資級公司債', isHeld:false, total:3304,  years:{'2019':0,'2020':0,'2021':0,'2022':0,'2023':0,'2024':3304,'2025':0,'2026':0}},
+  {ticker:'2103',  name:'台橡',           isHeld:false, total:1960,    years:{'2019':1960,'2020':0,'2021':0,'2022':0,'2023':0,'2024':0,'2025':0,'2026':0}},
+  {ticker:'00720B',name:'元大投資級公司債', isHeld:false, total:1924,  years:{'2019':0,'2020':0,'2021':0,'2022':0,'2023':0,'2024':1924,'2025':0,'2026':0}},
+  {ticker:'00881', name:'國泰台灣科技龍頭', isHeld:false, total:1740,  years:{'2019':0,'2020':0,'2021':540,'2022':850,'2023':350,'2024':0,'2025':0,'2026':0}},
+  {ticker:'3231',  name:'緯創',           isHeld:false, total:1575,    years:{'2019':1575,'2020':0,'2021':0,'2022':0,'2023':0,'2024':0,'2025':0,'2026':0}},
+  {ticker:'3625',  name:'西勝',           isHeld:false, total:1000,    years:{'2019':1000,'2020':0,'2021':0,'2022':0,'2023':0,'2024':0,'2025':0,'2026':0}},
+  {ticker:'8088',  name:'品安',           isHeld:false, total:440,     years:{'2019':440,'2020':0,'2021':0,'2022':0,'2023':0,'2024':0,'2025':0,'2026':0}},
+  {ticker:'2888',  name:'新光金',         isHeld:false, total:202,     years:{'2019':202,'2020':0,'2021':0,'2022':0,'2023':0,'2024':0,'2025':0,'2026':0}},
+];
+
+// realizedPnlByTicker：v1.5 新增，「已實現損益」權威數字，來源為 EventLog 的
+// 「02_損益總表」J欄（2026/07/11C 版，已套用 03_已知事項 驗證校正、平均成本法計算）。
+// 涵蓋全部 35 檔股票（含目前持有中的 10 檔——鴻海/力成這類股票過去也曾經部分賣出，
+// 那部分價差本來就已經「入袋」，不是只有已出清股票才有已實現損益）。
+// 跟其他資料一樣先預先種好，第一次打開就看得到正確數字，不用為了看這個數字特地
+// 匯入一次；之後重新匯入 EventLog 會覆蓋更新。
+const REALIZED_PNL_DEFAULT = {
+  '0056':0, '00687B':-10930, '00720B':295, '00725B':2961, '00878':0, '00881':-11170,
+  '00891':-6, '00910':-3, '00919':-3, '00937B':-22273, '1101':-55010, '1216':3627,
+  '1504':-165, '2002':-95, '2103':-22566, '2303':0, '2317':269152, '2353':804,
+  '2404':-12338, '2535':-22334, '2881':-85, '2882':27282, '2888':-2476, '2890':0,
+  '3231':-473, '3625':-18602, '4991':-4662, '5483':16434, '5880':-5150, '6154':652,
+  '6206':1730, '6239':118648, '8088':466, '8163':6473, '8358':2351
+};
+
+const DEFAULT = {dividendHistory:DIVIDEND_HISTORY_DEFAULT, realizedPnlByTicker:REALIZED_PNL_DEFAULT, stocks:{
 
   // ── 鴻海 2317 ────────────────────────────────────────
   '2317':{
@@ -257,25 +297,38 @@ const DEFAULT = {dividendHistory:[], stocks:{
 // ══ 已結清持股 ════════════════════════════════════════
 // 格式：buyCost（買入總成本，負值）、sellIncome（賣出總收入）、dividends（期間股利）
 // realizedPnl = sellIncome + buyCost + dividends
+// v1.5 自審時發現：以下 4 檔原本記錄的股票代碼是舊代碼／輸入誤植，跟
+// 04_股票基本資料（EventLog 權威主檔）對不起來，導致查不到 realizedPnlByTicker
+// 而落回舊公式。經比對名稱確認就是同一檔股票，這次已修正代碼（其餘欄位不動）：
+// 3323→8163（加百裕）、3022→6206（威強電）、6532→4991（瑞耘）、00915→00881（國泰台灣科技龍頭）。
+// 另外 5 檔（00891/00910/00919/2882/5483）過去完全不在這份清單裡，屬於清單本身
+// 遺漏，這次依 04_股票基本資料補上（buyCost 無歷史資料可查，用 0 代表「無法算報酬率」，
+// 畫面上會顯示「—」而非誤導性的 0.0%，見 renderClosedStocks()）。
 const CLOSED_STOCKS = [
   {ticker:'1101',  name:'台泥',           period:'2021~2024',  buyCost:-163117, sellIncome:119216, dividends:9084,  note:'日盛+統一'},
   {ticker:'2002',  name:'中鋼',           period:'2017~2018',  buyCost:-25185,  sellIncome:25090,  dividends:0,     note:'日盛'},
-  {ticker:'3323',  name:'加百裕',         period:'2016~2017',  buyCost:-59934,  sellIncome:66407,  dividends:0,     note:'日盛'},
+  {ticker:'8163',  name:'加百裕',         period:'2016~2017',  buyCost:-59934,  sellIncome:66407,  dividends:0,     note:'日盛'},
   {ticker:'2103',  name:'台橡',           period:'2017~2019',  buyCost:-71251,  sellIncome:48685,  dividends:1960,  note:'日盛'},
   {ticker:'8088',  name:'品安',           period:'2017~2019',  buyCost:-22732,  sellIncome:23198,  dividends:440,   note:'日盛'},
   {ticker:'3625',  name:'西勝',           period:'2017~2019',  buyCost:-40257,  sellIncome:21655,  dividends:1000,  note:'日盛'},
   {ticker:'3231',  name:'緯創',           period:'2017~2019',  buyCost:-53776,  sellIncome:54889,  dividends:1575,  note:'日盛'},
   {ticker:'2888',  name:'新光金',         period:'2018~2019',  buyCost:-24132,  sellIncome:22028,  dividends:202,   note:'日盛'},
-  {ticker:'3022',  name:'威強電',         period:'2016~2017',  buyCost:-45014,  sellIncome:46744,  dividends:0,     note:'日盛'},
+  {ticker:'6206',  name:'威強電',         period:'2016~2017',  buyCost:-45014,  sellIncome:46744,  dividends:0,     note:'日盛'},
   {ticker:'2353',  name:'宏碁',           period:'2018',       buyCost:-24534,  sellIncome:25338,  dividends:0,     note:'日盛'},
   {ticker:'1504',  name:'東元',           period:'2017',       buyCost:-28640,  sellIncome:28475,  dividends:0,     note:'日盛'},
   {ticker:'2404',  name:'漢唐',           period:'2017~2018',  buyCost:-67295,  sellIncome:54957,  dividends:0,     note:'日盛'},
-  {ticker:'6532',  name:'瑞耘',           period:'2016~2017',  buyCost:-31494,  sellIncome:26832,  dividends:0,     note:'日盛'},
+  {ticker:'4991',  name:'瑞耘',           period:'2016~2017',  buyCost:-31494,  sellIncome:26832,  dividends:0,     note:'日盛'},
   {ticker:'1216',  name:'統一',           period:'2017',       buyCost:-61086,  sellIncome:64713,  dividends:0,     note:'日盛'},
   {ticker:'8358',  name:'金居',           period:'2017',       buyCost:-40858,  sellIncome:43209,  dividends:0,     note:'日盛'},
   {ticker:'6154',  name:'順發',           period:'2016~2017',  buyCost:-16573,  sellIncome:17225,  dividends:0,     note:'日盛'},
-  {ticker:'00915', name:'國泰台灣科技龍頭', period:'2023',      buyCost:0,       sellIncome:59932,  dividends:0,     note:'匯撥後賣出'},
+  {ticker:'00881', name:'國泰台灣科技龍頭', period:'2023',      buyCost:0,       sellIncome:59932,  dividends:0,     note:'匯撥後賣出'},
   {ticker:'00687B',name:'國泰20年美債',   period:'2024~2025',  buyCost:-75983,  sellIncome:65053,  dividends:3764,  note:'國泰'},
   {ticker:'00720B',name:'元大投資級公司債', period:'2023~2024', buyCost:-71347,  sellIncome:82062,  dividends:3301,  note:'國泰'},
   {ticker:'00725B',name:'國泰投資級公司債', period:'2024',      buyCost:-57320,  sellIncome:84986,  dividends:1927,  note:'國泰'},
+  // ↓ v1.5 新增：04_股票基本資料標記「已出清」、但原本清單完全沒有的 5 檔
+  {ticker:'00891', name:'中信關鍵半導體',   period:'—', buyCost:0, sellIncome:0, dividends:0, note:'EventLog補列，無歷史成本資料'},
+  {ticker:'00910', name:'第一金太空衛星',   period:'—', buyCost:0, sellIncome:0, dividends:0, note:'EventLog補列，無歷史成本資料'},
+  {ticker:'00919', name:'群益台灣精選高息', period:'—', buyCost:0, sellIncome:0, dividends:0, note:'EventLog補列，無歷史成本資料'},
+  {ticker:'2882',  name:'國泰金',           period:'—', buyCost:0, sellIncome:0, dividends:6400, note:'EventLog補列，無歷史成本資料'},
+  {ticker:'5483',  name:'中美晶',           period:'—', buyCost:0, sellIncome:0, dividends:0, note:'EventLog補列，無歷史成本資料'},
 ];
