@@ -32,7 +32,7 @@ TICKERS = [
 BOND_ETF_TICKERS = ('00937B',)
 
 def fetch_price(ticker):
-    """抓取單一股票現價，回傳 (price, prev_close, source) 或 (None, None, None)。
+    """抓取單一股票現價，回傳 (price, prev_close, source, prev_source) 或 (None, None, None, None)。
     source 是診斷用欄位：'live'＝Yahoo 有回傳 regularMarketPrice（真的即時價）、
     'prevClose_fallback'＝Yahoo 沒回傳 regularMarketPrice，退回用昨收價頂替
     （這種情況下 price==prevClose，change/changePct 一定是 0，不代表今天真的平盤）。
@@ -67,11 +67,26 @@ def fetch_price(ticker):
             return _extract_price(meta2)
         except Exception as e2:
             print(f'  {ticker} fallback 也失敗: {e2}')
-            return None, None, None
+            return None, None, None, None
 
 def _extract_price(meta):
+    """2026/07/13 修正：追到「今日漲跌幅排行沒有數值」的根因——Yahoo 對這批
+    台股 symbol 的 meta 裡常常整個沒有 previousClose 這個 key（不是 0 或
+    null，是 key 不存在）。原本的寫法 meta.get('previousClose') 拿到 None
+    後，下面 `prev_final = prev if prev is not None else price` 會直接拿
+    「今天的價格」頂替昨收價，等於每一支都會算出 change=0、changePct=0，
+    但 source 卻還是標成 'live'，看起來像今天真的平盤，其實只是昨收價
+    抓不到。改成 previousClose 拿不到時，再退一步用 chartPreviousClose——
+    這個欄位是 chart API 畫圖用的「基準昨收」，幾乎每個 symbol 都有，
+    語意上等同昨收價。額外回傳 prev_source 診斷欄位，之後如果又發生類似
+    情況，能直接從 prices.json 看出昨收價是哪個欄位來的。
+    """
     live_price = meta.get('regularMarketPrice')
     prev = meta.get('previousClose')
+    prev_source = 'previousClose'
+    if prev is None:
+        prev = meta.get('chartPreviousClose')
+        prev_source = 'chartPreviousClose'
     if live_price:
         source = 'live'
         price = live_price
@@ -82,9 +97,9 @@ def _extract_price(meta):
         source = 'prevClose_fallback'
         price = prev
     if price is None:
-        raise ValueError('meta 裡連 regularMarketPrice 和 previousClose 都沒有')
+        raise ValueError('meta 裡連 regularMarketPrice、previousClose、chartPreviousClose 都沒有')
     prev_final = prev if prev is not None else price
-    return round(float(price), 2), round(float(prev_final), 2), source
+    return round(float(price), 2), round(float(prev_final), 2), source, prev_source
 
 def main():
     # 台灣時間 UTC+8
@@ -99,7 +114,7 @@ def main():
 
     for ticker in TICKERS:
         print(f'  抓取 {ticker}...', end=' ')
-        price, prev, source = fetch_price(ticker)
+        price, prev, source, prev_source = fetch_price(ticker)
         if price is not None:
             change = round(price - prev, 2) if prev else 0
             change_pct = round(change / prev * 100, 2) if prev else 0
@@ -110,6 +125,7 @@ def main():
                 'changePct': change_pct,
                 'updated': updated,
                 'source': source,  # 診斷欄位：'live' 或 'prevClose_fallback'，見 fetch_price() 說明
+                'prevSource': prev_source,  # 診斷欄位：昨收價是從 'previousClose' 還是 'chartPreviousClose' 拿到的
             }
             if source == 'live':
                 live_count += 1
