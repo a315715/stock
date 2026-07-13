@@ -170,9 +170,10 @@ const DEFAULT = {dividendHistory:DIVIDEND_HISTORY_DEFAULT, realizedPnlByTicker:R
     lastPrice:null, lastPriceTime:null,
   },
 
-  // ── 群益ESG投等債20+ 00724B（代號00937B在國泰） ──────
-  '00724B':{
-    ticker:'00724B', name:'群益ESG投等債20+', exchange:'TSE',
+  // ── 群益ESG投等債20+ 00937B（2026/07/13 修正：原本誤植為 00724B，
+  //    00724B 是舊代碼，已跟 Alvin 確認正確代碼是 00937B） ──────
+  '00937B':{
+    ticker:'00937B', name:'群益ESG投等債20+', exchange:'TSE',
     shares:6000, avgCost:15.96, totalCost:351858, buyAvg:15.96,
     brokers:[{name:'國泰證券', shares:6000, avg:15.96, cost:351858}],
     transactions:[],
@@ -225,23 +226,10 @@ const DEFAULT = {dividendHistory:DIVIDEND_HISTORY_DEFAULT, realizedPnlByTicker:R
     lastPrice:null, lastPriceTime:null,
   },
 
-  // ── 國泰台灣5G+ 00881 ────────────────────────────────
-  '00881':{
-    ticker:'00881', name:'國泰台灣5G+', exchange:'TSE',
-    shares:4000, avgCost:15.0, totalCost:60000, buyAvg:15.0,
-    brokers:[
-      {name:'日盛(內湖)',   shares:1000, avg:15.0, cost:15000},
-      {name:'永豐金證(原)', shares:3000, avg:15.0, cost:45000},
-    ],
-    transactions:[],
-    dividends:[
-      {year:2021, date:'2021-08-17', cash:0.54, stock:0, shares:1000, amount:540,  note:'日盛/富邦'},
-      {year:2022, date:'2022-01-18', cash:0.59, stock:0, shares:1000, amount:590,  note:'日盛/富邦'},
-      {year:2022, date:'2022-08-16', cash:0.26, stock:0, shares:1000, amount:260,  note:'日盛/富邦'},
-      {year:2023, date:'2023-01-30', cash:0.35, stock:0, shares:1000, amount:350,  note:'日盛/富邦'},
-    ],
-    lastPrice:null, lastPriceTime:null,
-  },
+  // 國泰台灣5G+/國泰台灣科技龍頭 00881（同一檔ETF改過名）：2026/07/13 移除，
+  // 集保確認已無庫存（已出清），不該留在「目前持有」種子資料裡；已實現損益／
+  // 股利彙總資料在 CLOSED_STOCKS／REALIZED_PNL_DEFAULT／DIVIDEND_HISTORY_DEFAULT
+  // 裡有獨立記錄，不受影響。
 
   // ── 聯電 2303 ────────────────────────────────────────
   '2303':{
@@ -275,22 +263,9 @@ const DEFAULT = {dividendHistory:DIVIDEND_HISTORY_DEFAULT, realizedPnlByTicker:R
     lastPrice:null, lastPriceTime:null,
   },
 
-  // ── 國泰金 2882 ──────────────────────────────────────
-  '2882':{
-    ticker:'2882', name:'國泰金', exchange:'TSE',
-    shares:700, avgCost:41.85, totalCost:29295, buyAvg:41.85,
-    brokers:[
-      {name:'永豐金證(原)', shares:700,  avg:41.85, cost:29295},
-      {name:'國泰證券',     shares:-840, avg:26.16, cost:-21974},
-    ],
-    transactions:[],
-    dividends:[
-      {year:2023, date:'2023-06-28', cash:0.9, stock:0, shares:1000, amount:900,  note:'國泰（含匯撥）'},
-      {year:2024, date:'2024-07-01', cash:2.0, stock:0, shares:1000, amount:2000, note:'國泰（含匯撥）'},
-      {year:2025, date:'2025-06-30', cash:3.5, stock:0, shares:1000, amount:3500, note:'國泰（含匯撥）'},
-    ],
-    lastPrice:null, lastPriceTime:null,
-  },
+  // 國泰金 2882：2026/07/13 移除，已全數出清為0股，不該留在「目前持有」
+  // 種子資料裡；已實現損益／股利彙總資料在 CLOSED_STOCKS／REALIZED_PNL_DEFAULT／
+  // DIVIDEND_HISTORY_DEFAULT 裡有獨立記錄，不受影響。
 
 }};
 
