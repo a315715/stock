@@ -14,9 +14,9 @@
     <span class="topbar-title" id="topTitle">台股損益</span>
     <button class="topbar-btn topbar-btn-icon" onclick="openDataPanel()" style="margin-right:8px;" title="資料管理">⚙</button>
     <button class="topbar-btn topbar-btn-icon" id="topBtnRefresh" onclick="fetchAllPrices()" style="margin-right:8px;" title="全部更新">↻</button>
-    <!-- v2.0：新增股票搬到「記錄」頁，總覽頁（預設分頁）初始不顯示這顆按鈕，
-         showNav() 切換分頁時會依頁面決定顯示/隱藏與文字/onclick -->
-    <button class="topbar-btn topbar-btn-icon" id="topBtn" onclick="topAction()" title="新增股票" style="display:none;">＋</button>
+    <!-- v2.1：新增股票入口已併入「新增買進」，這顆按鈕現在只有明細頁「✎編輯」
+         會用到（openDetail()/goBack() 會設定 onclick 與顯示/隱藏），預設隱藏 -->
+    <button class="topbar-btn topbar-btn-icon" id="topBtn" title="編輯" style="display:none;">＋</button>
   </div>
 
   <div class="content" id="mainContent">
@@ -291,7 +291,11 @@
   <div class="modal">
     <div class="modal-hd"><span class="modal-title" id="mTxTitle">新增交易</span><button class="btn-close" onclick="closeModal('modalTx')">×</button></div>
     <div class="form-group"><label class="form-label">股票</label>
-      <select class="form-input" id="fTxStock"></select></div>
+      <select class="form-input" id="fTxStock" onchange="onTxStockChange()"></select></div>
+    <div class="form-row" id="txNewStockRow" style="display:none;">
+      <div class="form-group"><label class="form-label">股票代號</label><input class="form-input" id="fTxNewTicker" placeholder="例：2317"></div>
+      <div class="form-group"><label class="form-label">股票名稱</label><input class="form-input" id="fTxNewName" placeholder="例：鴻海精密"></div>
+    </div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">日期</label><input class="form-input" type="date" id="fTxDate"></div>
       <div class="form-group"><label class="form-label">類型</label>
@@ -379,10 +383,8 @@ function showNav(name,el){
     renderOverview();
   } else if(name==='Records'){
     document.getElementById('topTitle').textContent='記錄';
-    // v2.0：新增股票入口搬來這裡（純圖示「＋」）
-    document.getElementById('topBtn').textContent='＋';
-    document.getElementById('topBtn').onclick=openAddStock;
-    document.getElementById('topBtn').style.display='flex';
+    // v2.1：新增股票入口已併入「快速新增」的「新增買進」，記錄頁頂部不再顯示＋按鈕
+    document.getElementById('topBtn').style.display='none';
     setRefreshBtnVisible(false);
     showPage('Records');
     renderRecentTx();
@@ -398,8 +400,6 @@ function showPage(n){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
   document.getElementById('page'+n).classList.add('on');
 }
-function topAction(){openAddStock();}
-
 function openDetail(ticker){
   currentTicker=ticker;
   const s=getStock(ticker);
@@ -985,17 +985,10 @@ function setStockMode(mode){
   document.getElementById('quickFieldsRow2').style.display=mode==='quick'?'grid':'none';
   document.getElementById('minimalHint').style.display=mode==='minimal'?'block':'none';
 }
-function openAddStock(){
-  document.getElementById('mStockTitle').textContent='新增股票';
-  ['fTicker','fName','fShares','fAvgCost','fTotalCost','fBuyAvg'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('fTicker').readOnly=false;
-  ['fShares','fAvgCost','fTotalCost','fBuyAvg'].forEach(id=>document.getElementById(id).disabled=false);
-  document.getElementById('txModeHint').style.display='none';
-  document.getElementById('btnDelStock').style.display='none';
-  document.getElementById('stockModeRow').style.display='flex';
-  setStockMode('quick');
-  openModal('modalStock');
-}
+// v2.1：新增股票已不再有獨立入口（併入「新增買進」，見 saveTx()），
+// openAddStock() 移除。modalStock 現在只有 openEditStock() 會開啟，
+// stockModeRow／setStockMode('minimal') 這條路徑也因此不會再被觸發
+// （openEditStock 一律呼叫 setStockMode('quick') 並隱藏 stockModeRow）。
 function openEditStock(ticker){
   const s=getStock(ticker);
   const isTx=s.calcMode==='tx';
@@ -1058,14 +1051,27 @@ function deleteStock(){
   delete DB.stocks[ticker];saveDB();closeModal('modalStock');goBack();
 }
 
-function populateTxStockSelect(defaultTicker){
+// v2.1：allowNew=true 時，選單最上面多一個「+ 新增股票...」選項（只有從
+// 「新增買進」快速新增按鈕進來才會是 true，見 openAddTxGlobal()）。
+function populateTxStockSelect(defaultTicker, allowNew){
   const sel=document.getElementById('fTxStock');
-  sel.innerHTML=Object.values(DB.stocks).map(s=>`<option value="${s.ticker}" ${s.ticker===defaultTicker?'selected':''}>${s.name}(${s.ticker})</option>`).join('');
+  const opts=Object.values(DB.stocks).map(s=>`<option value="${s.ticker}" ${s.ticker===defaultTicker?'selected':''}>${s.name}(${s.ticker})</option>`).join('');
+  sel.innerHTML=(allowNew?'<option value="__new__">+ 新增股票...</option>':'')+opts;
+  document.getElementById('fTxNewTicker').value='';
+  document.getElementById('fTxNewName').value='';
+  onTxStockChange();
+}
+// v2.1：股票選單選到「+ 新增股票...」時，顯示代號/名稱輸入欄；否則隱藏
+function onTxStockChange(){
+  const isNew=document.getElementById('fTxStock').value==='__new__';
+  document.getElementById('txNewStockRow').style.display=isNew?'grid':'none';
 }
 let editingTxId=null;
-function openAddTx(){
+// v2.1：allowNewStock 只有「新增買進」快速新增按鈕會傳 true（見 openAddTxGlobal）；
+// 明細頁「＋新增交易」、賣出/配股快速新增都維持 false，不能建新股票
+function openAddTx(allowNewStock){
   editingTxId=null;
-  populateTxStockSelect(currentTicker);
+  populateTxStockSelect(currentTicker, !!allowNewStock);
   document.getElementById('fTxStock').disabled=false;
   document.getElementById('mTxTitle').textContent='新增交易';
   document.getElementById('btnSaveTx').textContent='新增';
@@ -1080,7 +1086,8 @@ function openAddTx(){
   openModal('modalTx');
 }
 function openAddTxGlobal(type){
-  openAddTx();
+  // v2.1：只有「新增買進」允許順便建立新股票；賣出/配股邏輯上必須是已持有股票
+  openAddTx(type==='買');
   document.getElementById('fTxType').value=type;
   onTxTypeChange();
 }
@@ -1265,7 +1272,20 @@ function confirmSwitchToTxMode(s){
 }
 
 function saveTx(){
-  const ticker=document.getElementById('fTxStock').value;
+  let ticker=document.getElementById('fTxStock').value;
+  if(ticker==='__new__'){
+    // v2.1：新增買進時選「+ 新增股票...」——先建立一個 tx 模式的新股票
+    // （初始形狀跟 EventLog 匯入新股票時一致：shares/成本皆為0，等下面
+    // 這筆買進交易透過 applyCalcResult() 算出來），再繼續當成一般新增交易處理
+    const newTicker=document.getElementById('fTxNewTicker').value.trim();
+    const newName=document.getElementById('fTxNewName').value.trim();
+    if(!newTicker||!newName){alert('請填寫新股票的代號與名稱');return;}
+    if(DB.stocks[newTicker]){alert('這個股票代號已經存在，請直接從清單選擇');return;}
+    DB.stocks[newTicker]={ticker:newTicker,name:newName,exchange:'TSE',calcMode:'tx',
+      shares:0,avgCost:0,totalCost:0,buyAvg:0,brokers:[],transactions:[],dividends:[],
+      openingBalanceAdjustment:null,calcError:null,lastPrice:null,lastPriceTime:null};
+    ticker=newTicker;
+  }
   if(!ticker){alert('請選擇股票');return;}
   const s=getStock(ticker);
   s.transactions=s.transactions||[];

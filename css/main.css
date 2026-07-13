@@ -195,10 +195,10 @@ tr:last-child td{border-bottom:none;}
 /* ── RECORDS PAGE ── */
 .rec-section{padding:16px 16px 8px;}
 .rec-section-title{font-size:12px;font-weight:600;color:var(--hint);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:10px;}
-.quick-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-.quick-btn{padding:14px;background:var(--bg2);border:1px solid var(--bd);border-radius:var(--radius);color:var(--text);font-size:14px;font-weight:500;cursor:pointer;text-align:center;-webkit-tap-highlight-color:transparent;}
+.quick-btns{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+.quick-btn{padding:10px 4px;background:var(--bg2);border:1px solid var(--bd);border-radius:var(--radius);color:var(--text);font-size:12px;font-weight:500;cursor:pointer;text-align:center;-webkit-tap-highlight-color:transparent;}
 .quick-btn:active{background:var(--bg3);}
-.quick-btn-icon{font-size:24px;display:block;margin-bottom:4px;}
+.quick-btn-icon{font-size:20px;display:block;margin-bottom:3px;}
 
 /* ── STATS PAGE ── */
 .stats-hero{padding:16px 16px 12px;border-bottom:1px solid var(--bd);}
