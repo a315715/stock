@@ -1,89 +1,99 @@
 {
-  "_updated": "2026-07-13T22:46:21+08:00",
+  "_updated": "2026-07-14T15:29:42+08:00",
   "_ok": 10,
   "_fail": 0,
   "_liveCount": 10,
   "_fallbackCount": 0,
   "prices": {
     "2317": {
-      "price": 236.5,
+      "price": 235.5,
       "prevClose": 236.5,
-      "change": 0.0,
-      "changePct": 0.0,
-      "updated": "2026-07-13T22:46:21+08:00",
-      "source": "live"
+      "change": -1.0,
+      "changePct": -0.42,
+      "updated": "2026-07-14T15:29:42+08:00",
+      "source": "live",
+      "prevSource": "chartPreviousClose"
     },
     "2535": {
-      "price": 89.3,
+      "price": 87.7,
       "prevClose": 89.3,
-      "change": 0.0,
-      "changePct": 0.0,
-      "updated": "2026-07-13T22:46:21+08:00",
-      "source": "live"
+      "change": -1.6,
+      "changePct": -1.79,
+      "updated": "2026-07-14T15:29:42+08:00",
+      "source": "live",
+      "prevSource": "chartPreviousClose"
     },
     "2890": {
-      "price": 40.2,
+      "price": 39.65,
       "prevClose": 40.2,
-      "change": 0.0,
-      "changePct": 0.0,
-      "updated": "2026-07-13T22:46:21+08:00",
-      "source": "live"
+      "change": -0.55,
+      "changePct": -1.37,
+      "updated": "2026-07-14T15:29:42+08:00",
+      "source": "live",
+      "prevSource": "chartPreviousClose"
     },
     "2881": {
-      "price": 127.0,
+      "price": 125.0,
       "prevClose": 127.0,
-      "change": 0.0,
-      "changePct": 0.0,
-      "updated": "2026-07-13T22:46:21+08:00",
-      "source": "live"
+      "change": -2.0,
+      "changePct": -1.57,
+      "updated": "2026-07-14T15:29:42+08:00",
+      "source": "live",
+      "prevSource": "chartPreviousClose"
     },
     "6239": {
-      "price": 312.5,
+      "price": 304.0,
       "prevClose": 312.5,
-      "change": 0.0,
-      "changePct": 0.0,
-      "updated": "2026-07-13T22:46:21+08:00",
-      "source": "live"
+      "change": -8.5,
+      "changePct": -2.72,
+      "updated": "2026-07-14T15:29:42+08:00",
+      "source": "live",
+      "prevSource": "chartPreviousClose"
     },
     "00878": {
-      "price": 33.13,
+      "price": 32.72,
       "prevClose": 33.13,
-      "change": 0.0,
-      "changePct": 0.0,
-      "updated": "2026-07-13T22:46:21+08:00",
-      "source": "live"
+      "change": -0.41,
+      "changePct": -1.24,
+      "updated": "2026-07-14T15:29:42+08:00",
+      "source": "live",
+      "prevSource": "chartPreviousClose"
     },
     "00937B": {
-      "price": 14.79,
+      "price": 14.77,
       "prevClose": 14.79,
-      "change": 0.0,
-      "changePct": 0.0,
-      "updated": "2026-07-13T22:46:21+08:00",
-      "source": "live"
+      "change": -0.02,
+      "changePct": -0.14,
+      "updated": "2026-07-14T15:29:42+08:00",
+      "source": "live",
+      "prevSource": "chartPreviousClose"
     },
     "5880": {
       "price": 25.2,
       "prevClose": 25.2,
       "change": 0.0,
       "changePct": 0.0,
-      "updated": "2026-07-13T22:46:21+08:00",
-      "source": "live"
+      "updated": "2026-07-14T15:29:42+08:00",
+      "source": "live",
+      "prevSource": "chartPreviousClose"
     },
     "2303": {
-      "price": 153.5,
+      "price": 151.0,
       "prevClose": 153.5,
-      "change": 0.0,
-      "changePct": 0.0,
-      "updated": "2026-07-13T22:46:21+08:00",
-      "source": "live"
+      "change": -2.5,
+      "changePct": -1.63,
+      "updated": "2026-07-14T15:29:42+08:00",
+      "source": "live",
+      "prevSource": "chartPreviousClose"
     },
     "0056": {
-      "price": 52.4,
+      "price": 51.75,
       "prevClose": 52.4,
-      "change": 0.0,
-      "changePct": 0.0,
-      "updated": "2026-07-13T22:46:21+08:00",
-      "source": "live"
+      "change": -0.65,
+      "changePct": -1.24,
+      "updated": "2026-07-14T15:29:42+08:00",
+      "source": "live",
+      "prevSource": "chartPreviousClose"
     }
   }
 }
