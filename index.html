@@ -877,12 +877,16 @@ function renderDivTab(s){
 // ══ FETCH PRICE ═══════════════════════════════════════
 async function fetchAllPrices(){
   const btn=document.getElementById('topBtnRefresh');
-  btn.textContent='更新中...';btn.disabled=true;
+  // v3.0 修正：這顆按鈕從 v2.0 起就改成純圖示（見 main.css .topbar-btn-icon 註解），
+  // 但這幾行從那之前就留著，執行完會把文字塞回按鈕，撐爆固定 44px 的正方形、
+  // 擠成三行（使用者回報的問題）。改成用 CSS class 切換旋轉動畫表示進行中，
+  // 文字內容（單一「↻」字）全程不動。
+  btn.classList.add('spinning');btn.disabled=true;
   clearPriceCache(); // 強制重新讀取最新 prices.json
 
   const data=await loadPrices();
   if(!data||!data.prices){
-    btn.textContent='↻ 全部更新';btn.disabled=false;
+    btn.classList.remove('spinning');btn.disabled=false;
     alert('無法讀取股價資料，請稍後再試。');
     return;
   }
@@ -906,7 +910,7 @@ async function fetchAllPrices(){
 
   saveDB();
   renderOverview();
-  btn.textContent='↻ 全部更新';btn.disabled=false;
+  btn.classList.remove('spinning');btn.disabled=false;
   if(failCount>0&&okCount===0){
     alert('股價資料讀取失敗，可能尚未更新或非交易時間。');
   }

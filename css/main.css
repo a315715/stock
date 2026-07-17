@@ -44,6 +44,11 @@ body{color:var(--text);font-family:-apple-system,"SF Pro Display","PingFang TC",
 /* v3.0：44px 最小點擊區（Apple HIG），取代原本 34px */
 .topbar-btn-icon{width:44px;height:44px;padding:0;display:flex;align-items:center;justify-content:center;font-size:17px;border-radius:22px;}
 .topbar-btn:active{background:var(--sep);}
+/* v3.0：「全部更新」按鈕loading狀態——維持圖示不變，用旋轉表示進行中，
+   取代原本會把文字塞回按鈕、撐爆44px方框的做法（見 index.html fetchAllPrices() 註解）。
+   reduced-motion 使用者會被最上面的全域 @media 規則關掉這個動畫，改成純粹disabled變淡。 */
+.topbar-btn-icon.spinning{animation:spin .8s linear infinite;opacity:.6;}
+@keyframes spin{to{transform:rotate(360deg);}}
 
 /* content */
 .content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:calc(70px + var(--safe-b));}
