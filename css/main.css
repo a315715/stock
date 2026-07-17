@@ -59,15 +59,15 @@ body{color:var(--text);font-family:-apple-system,"SF Pro Display","PingFang TC",
 
 /* ── OVERVIEW：摘要卡（v3.0：改成卡片浮起，不再用底部border分隔）── */
 .hero{margin:10px 16px 20px;background:var(--card);border-radius:var(--radius);padding:18px 18px 14px;}
-.hero-tag{font-size:12.5px;color:var(--muted);margin-bottom:6px;}
-.hero-pnl{font-size:38px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;letter-spacing:-0.5px;overflow-wrap:anywhere;}
-.hero-pct{font-size:16px;font-weight:700;margin-left:10px;vertical-align:middle;background:rgba(255,69,58,.14);padding:2px 9px;border-radius:8px;}
+.hero-tag{font-size:13px;color:var(--muted);margin-bottom:6px;}
+.hero-pnl{font-size:44px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;letter-spacing:-0.5px;overflow-wrap:anywhere;}
+.hero-pct{font-size:20px;font-weight:700;margin-left:10px;vertical-align:middle;background:rgba(255,69,58,.14);padding:2px 9px;border-radius:8px;}
 [data-theme="light"] .hero-pct{background:rgba(255,59,48,.1);}
-.hero-sub{font-size:13px;color:var(--hint);margin-top:8px;}
+.hero-sub{font-size:14px;color:var(--hint);margin-top:8px;}
 .hero-row{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-top:14px;border-top:.5px solid var(--sep);padding-top:12px;}
 .hero-stat{text-align:center;padding:0 4px;min-width:0;}
 .hero-stat:not(:last-child){border-right:.5px solid var(--sep);}
-.hero-stat-lbl{font-size:12px;color:var(--hint);margin-bottom:4px;}
+.hero-stat-lbl{font-size:13px;color:var(--hint);margin-bottom:4px;}
 .hero-stat-val{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
 
 /* ── OVERVIEW：報酬率／排序切換工具列 ── */
@@ -99,8 +99,8 @@ body{color:var(--text);font-family:-apple-system,"SF Pro Display","PingFang TC",
 .movers-empty{display:none;font-size:12px;color:var(--hint);padding:2px 0 0;}
 
 .list-hd{display:flex;justify-content:space-between;align-items:center;padding:4px 30px 8px;}
-.list-hd-l{font-size:12.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;}
-.list-hd-r{font-size:12px;color:var(--hint);}
+.list-hd-l{font-size:14px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;}
+.list-hd-r{font-size:13px;color:var(--hint);}
 
 /* stock card — v3.0：整組包在 .list-wrap 卡片裡，row之間用--sep分隔，
    不再各自獨立躺在頁面background上（見 index.html 的 .list-wrap 容器） */
@@ -109,10 +109,10 @@ body{color:var(--text);font-family:-apple-system,"SF Pro Display","PingFang TC",
 .list-wrap .scard:last-child{border-bottom:none;}
 .scard:active{background:var(--card2);}
 .scard-left{flex:1;min-width:0;}
-.scard-name{font-size:17px;font-weight:600;color:var(--text);}
-.scard-shares{font-size:13px;color:var(--muted);margin-top:2px;}
+.scard-name{font-size:18px;font-weight:600;color:var(--text);}
+.scard-shares{font-size:14px;color:var(--muted);margin-top:2px;}
 .scard-mid{text-align:center;min-width:90px;}
-.scard-price{font-family:var(--mono);font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;}
+.scard-price{font-family:var(--mono);font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;}
 .scard-chg{font-size:12px;margin-top:2px;}
 .scard-right{text-align:right;min-width:100px;}
 .scard-cost{font-size:13px;color:var(--muted);margin-bottom:3px;}
