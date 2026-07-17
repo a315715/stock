@@ -1,89 +1,99 @@
 {
-  "_updated": "2026-07-13T22:46:21+08:00",
+  "_updated": "2026-07-17T17:19:22+08:00",
   "_ok": 10,
   "_fail": 0,
   "_liveCount": 10,
   "_fallbackCount": 0,
   "prices": {
     "2317": {
-      "price": 236.5,
-      "prevClose": 236.5,
-      "change": 0.0,
-      "changePct": 0.0,
-      "updated": "2026-07-13T22:46:21+08:00",
-      "source": "live"
+      "price": 234.0,
+      "prevClose": 242.5,
+      "change": -8.5,
+      "changePct": -3.51,
+      "updated": "2026-07-17T17:19:22+08:00",
+      "source": "live",
+      "prevSource": "chartPreviousClose"
     },
     "2535": {
-      "price": 89.3,
+      "price": 86.5,
       "prevClose": 89.3,
-      "change": 0.0,
-      "changePct": 0.0,
-      "updated": "2026-07-13T22:46:21+08:00",
-      "source": "live"
+      "change": -2.8,
+      "changePct": -3.14,
+      "updated": "2026-07-17T17:19:22+08:00",
+      "source": "live",
+      "prevSource": "chartPreviousClose"
     },
     "2890": {
-      "price": 40.2,
-      "prevClose": 40.2,
-      "change": 0.0,
-      "changePct": 0.0,
-      "updated": "2026-07-13T22:46:21+08:00",
-      "source": "live"
+      "price": 40.0,
+      "prevClose": 39.85,
+      "change": 0.15,
+      "changePct": 0.38,
+      "updated": "2026-07-17T17:19:22+08:00",
+      "source": "live",
+      "prevSource": "chartPreviousClose"
     },
     "2881": {
-      "price": 127.0,
-      "prevClose": 127.0,
-      "change": 0.0,
-      "changePct": 0.0,
-      "updated": "2026-07-13T22:46:21+08:00",
-      "source": "live"
+      "price": 124.5,
+      "prevClose": 125.0,
+      "change": -0.5,
+      "changePct": -0.4,
+      "updated": "2026-07-17T17:19:22+08:00",
+      "source": "live",
+      "prevSource": "chartPreviousClose"
     },
     "6239": {
-      "price": 312.5,
-      "prevClose": 312.5,
-      "change": 0.0,
-      "changePct": 0.0,
-      "updated": "2026-07-13T22:46:21+08:00",
-      "source": "live"
+      "price": 288.0,
+      "prevClose": 316.5,
+      "change": -28.5,
+      "changePct": -9.0,
+      "updated": "2026-07-17T17:19:22+08:00",
+      "source": "live",
+      "prevSource": "chartPreviousClose"
     },
     "00878": {
-      "price": 33.13,
-      "prevClose": 33.13,
-      "change": 0.0,
-      "changePct": 0.0,
-      "updated": "2026-07-13T22:46:21+08:00",
-      "source": "live"
+      "price": 31.81,
+      "prevClose": 32.95,
+      "change": -1.14,
+      "changePct": -3.46,
+      "updated": "2026-07-17T17:19:22+08:00",
+      "source": "live",
+      "prevSource": "chartPreviousClose"
     },
     "00937B": {
-      "price": 14.79,
+      "price": 14.81,
       "prevClose": 14.79,
-      "change": 0.0,
-      "changePct": 0.0,
-      "updated": "2026-07-13T22:46:21+08:00",
-      "source": "live"
+      "change": 0.02,
+      "changePct": 0.14,
+      "updated": "2026-07-17T17:19:22+08:00",
+      "source": "live",
+      "prevSource": "chartPreviousClose"
     },
     "5880": {
-      "price": 25.2,
-      "prevClose": 25.2,
-      "change": 0.0,
-      "changePct": 0.0,
-      "updated": "2026-07-13T22:46:21+08:00",
-      "source": "live"
+      "price": 25.35,
+      "prevClose": 25.5,
+      "change": -0.15,
+      "changePct": -0.59,
+      "updated": "2026-07-17T17:19:22+08:00",
+      "source": "live",
+      "prevSource": "chartPreviousClose"
     },
     "2303": {
-      "price": 153.5,
-      "prevClose": 153.5,
-      "change": 0.0,
-      "changePct": 0.0,
-      "updated": "2026-07-13T22:46:21+08:00",
-      "source": "live"
+      "price": 144.0,
+      "prevClose": 160.0,
+      "change": -16.0,
+      "changePct": -10.0,
+      "updated": "2026-07-17T17:19:22+08:00",
+      "source": "live",
+      "prevSource": "chartPreviousClose"
     },
     "0056": {
-      "price": 52.4,
-      "prevClose": 52.4,
-      "change": 0.0,
-      "changePct": 0.0,
-      "updated": "2026-07-13T22:46:21+08:00",
-      "source": "live"
+      "price": 50.75,
+      "prevClose": 52.65,
+      "change": -1.9,
+      "changePct": -3.61,
+      "updated": "2026-07-17T17:19:22+08:00",
+      "source": "live",
+      "prevSource": "chartPreviousClose"
     }
   }
 }
