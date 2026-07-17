@@ -14,6 +14,7 @@ const SCHEMA_KEY     = 'tstock_schema_version';
 const DB_KEY         = 'tstock_v2';
 const BACKUP_KEY     = 'tstock_v2_backup_pre_migration';
 const BACKUP_META_KEY= 'tstock_backup_meta';
+const THEME_KEY       = 'tstock_theme'; // v3.0：'dark'|'light'，跟 DB 資料本身無關，獨立存放
 
 // ══ UUID ══════════════════════════════════════════════
 // 優先使用瀏覽器原生 crypto.randomUUID()；不支援時退回 fallback，
@@ -207,3 +208,17 @@ function restoreFromBackup(){
 }
 
 function getStock(t){ return DB.stocks[t]; }
+
+// ══ 主題偏好（v3.0） ═══════════════════════════════════
+// 跟 DB 資料本身無關（不是投資組合資料），但一樣走 localStorage，
+// 所以還是放在 db.js 這個唯一允許讀寫 localStorage 的地方，維持既有規範。
+// index.html 的 bootstrap script 是唯一的例外（見 index.html 開頭註解），
+// 因為那段必須在 db.js 載入前就跑完，避免主題閃爍。
+function getTheme(){
+  try{ return localStorage.getItem(THEME_KEY)==='light' ? 'light' : 'dark'; }
+  catch(e){ return 'dark'; }
+}
+function setTheme(theme){
+  try{ localStorage.setItem(THEME_KEY, theme==='light'?'light':'dark'); }
+  catch(e){}
+}

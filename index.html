@@ -4,7 +4,28 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>台股損益工具</title>
+<!-- v3.0：淺色/深色主題。theme-color 控制瀏覽器分頁/PWA狀態列顏色，
+     status-bar-style 控制加到主畫面後、全螢幕模式下的 iOS 狀態列樣式，
+     兩個都要跟著 data-theme 動態更新，見下面 applyTheme()。 -->
+<meta name="theme-color" content="#000000" id="metaThemeColor">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" id="metaStatusBar">
 <link rel="stylesheet" href="css/main.css">
+<script>
+// v3.0：主題 bootstrap——唯一允許在 db.js 之外直接讀 localStorage 的地方。
+// 這裡必須搶在 CSS 套用、頁面第一次畫出來之前跑完，才能避免「先閃一下深色、
+// 才切成淺色」的畫面閃爍；db.js 要到 body 最下面才會載入，時間點太晚，
+// 所以這段 bootstrap 只能用最原始的 localStorage.getItem，不透過 db.js。
+// 之後任何其他地方要讀/寫主題設定，一律走 db.js 的 getTheme()/setTheme()，
+// 不要在別的地方也直接碰 localStorage（維持既有規範）。
+(function(){
+  try{
+    if(localStorage.getItem('tstock_theme')==='light'){
+      document.documentElement.setAttribute('data-theme','light');
+    }
+  }catch(e){}
+})();
+</script>
 </head>
 <body>
 <div id="migrateBanner" class="migrate-banner" style="display:none;"></div>
@@ -66,7 +87,7 @@
         <button class="step-btn" data-sort="cost" onclick="setSortBy('cost')">總成本</button>
         <button class="step-btn" data-sort="name" onclick="setSortBy('name')">名稱</button>
       </div>
-      <div id="stockList"></div>
+      <div id="stockList" class="list-wrap"></div>
 
       <div class="alloc-card" id="moversCard">
         <div class="alloc-title">今日漲跌幅排行</div>
@@ -96,7 +117,7 @@
         <span class="list-hd-l">已結清 (<span id="closedCount">0</span>) <span id="closedToggleIcon" style="font-size:11px;color:var(--hint);">▶ 展開</span></span>
         <span class="list-hd-r">已出清損益: <span id="closedPnlLbl">—</span></span>
       </div>
-      <div id="closedList" style="display:none;"></div>
+      <div id="closedList" class="list-wrap" style="display:none;"></div>
       <div style="font-size:11px;color:var(--hint);padding:4px 16px 0;">僅列已出清（目前 0 股）持股；目前持有股票過去已實現的部分，已計入上方摘要卡「已實現損益」。</div>
 
       <div style="height:8px;"></div>
@@ -346,6 +367,16 @@
     <div class="modal-hd"><span class="modal-title">資料管理</span><button class="btn-close" onclick="closeModal('modalDataPanel')">×</button></div>
     <div class="data-panel">
       <div class="data-panel-section">
+        <div class="data-panel-title">外觀</div>
+        <div class="theme-switch-row">
+          <span class="theme-switch-lbl">淺色 / 深色</span>
+          <div class="theme-switch" id="themeSwitch">
+            <button id="themeBtnDark" onclick="applyTheme('dark')">深色</button>
+            <button id="themeBtnLight" onclick="applyTheme('light')">淺色</button>
+          </div>
+        </div>
+      </div>
+      <div class="data-panel-section">
         <div class="data-panel-title">EventLog 匯入</div>
         <div class="muted">只會匯入「目前持有」的股票（依 04_股票基本資料的「目前狀態」判斷），已出清股票不受影響。重新匯入會整批覆蓋這些股票原有的交易/股利記錄。若檔案含「06_各股歷年股利」分頁，會一併更新「統計」頁的歷年股利表格（含已出清股票）；若含「02_損益總表」分頁，會一併更新「已實現損益」權威數字。</div>
         <input type="file" id="eventLogFile" accept=".xlsx" style="margin:8px 0;display:block;">
@@ -580,7 +611,7 @@ function renderAllocationDonut(stocks,totalMV){
     .filter(x=>x.mv>0)
     .sort((a,b)=>b.mv-a.mv);
   if(!withMV.length||!totalMV){
-    donutEl.style.background='var(--bg3)';
+    donutEl.style.background='var(--card2)';
     donutEl.style.removeProperty('mask');
     donutEl.style.removeProperty('-webkit-mask');
     legendEl.innerHTML='<div class="empty" style="padding:8px;">尚無持股資料</div>';
@@ -815,7 +846,7 @@ function renderTxTable(s){
     const priceStr=isStockDividend?'—':(t.price||'—');
     const amtStr=t.amount?'NT$'+fmtN(Math.abs(t.amount)):'—';
     return `<tr><td>${t.date}</td><td class="${c}">${t.type}</td><td>${sharesOrAmt}</td><td>${priceStr}</td><td>${amtStr}</td>
-      <td><button style="font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--bd2);background:transparent;color:var(--muted);cursor:pointer;" onclick="openEditTx('${s.ticker}','${t.id}')">編輯</button></td></tr>`;
+      <td><button style="font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--sep);background:transparent;color:var(--muted);cursor:pointer;" onclick="openEditTx('${s.ticker}','${t.id}')">編輯</button></td></tr>`;
   }).join('');
 }
 
@@ -838,7 +869,7 @@ function renderDivTab(s){
       <td>${d.cash.toFixed(2)}</td>
       <td>${fmtN(d.shares)}</td>
       <td class="gold">NT$${fmtN(est)}</td>
-      <td><button style="font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--bd2);background:transparent;color:var(--muted);cursor:pointer;" onclick="openEditDiv(${i})">編輯</button></td>
+      <td><button style="font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--sep);background:transparent;color:var(--muted);cursor:pointer;" onclick="openEditDiv(${i})">編輯</button></td>
     </tr>`;
   }).join('');
 }
@@ -1852,8 +1883,31 @@ function renderImportResult(result){
     ${realizedHtml}`;
 }
 
+// ══ 主題切換（v3.0） ═══════════════════════════════════
+// 頁面載入當下的視覺狀態已經由 index.html <head> 的 bootstrap script 處理好了
+// （避免閃爍），這裡負責：真的按下切換鈕時的動作，以及讓 meta tag／設定面板的
+// 按鈕狀態，跟目前主題保持同步。
+function applyTheme(theme){
+  theme = theme==='light' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', theme);
+  setTheme(theme); // 寫入 localStorage，走 db.js（見 db.js 說明）
+
+  // iOS 狀態列／瀏覽器分頁顏色要跟著換，不然淺色模式底下狀態列還是黑的，不搭
+  const bg = theme==='light' ? '#f2f2f7' : '#000000';
+  document.getElementById('metaThemeColor').setAttribute('content', bg);
+  document.getElementById('metaStatusBar').setAttribute('content', theme==='light' ? 'default' : 'black-translucent');
+
+  const btnDark=document.getElementById('themeBtnDark'), btnLight=document.getElementById('themeBtnLight');
+  if(btnDark && btnLight){
+    btnDark.classList.toggle('on', theme==='dark');
+    btnLight.classList.toggle('on', theme==='light');
+  }
+}
+
 // ══ BOOT ══════════════════════════════════════════════
 (function boot(){
+  applyTheme(getTheme()); // 同步 meta tag／設定面板按鈕狀態（data-theme 屬性本身
+                           // bootstrap script 已經設過了，這裡不會造成閃爍，只是補完其他狀態）
   const result=loadDB();
   // v1.3：既有 localStorage 使用者（尚未重新匯入過）不會有這個新欄位，防呆補上空陣列，
   // 避免 renderDividendHistoryTable() 讀到 undefined。
