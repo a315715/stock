@@ -210,9 +210,9 @@ body{color:var(--text);font-family:-apple-system,"SF Pro Display","PingFang TC",
 /* tables */
 .tbl-wrap{margin:10px 16px 0;background:var(--card);border-radius:var(--radius);overflow:hidden;overflow-x:auto;-webkit-overflow-scrolling:touch;}
 table{width:100%;border-collapse:collapse;min-width:320px;}
-th{font-size:12px;font-weight:600;color:var(--hint);letter-spacing:0.05em;padding:8px 12px;text-align:right;background:var(--card2);border-bottom:.5px solid var(--sep);white-space:nowrap;}
+th{font-size:14px;font-weight:600;color:var(--hint);letter-spacing:0.05em;padding:8px 12px;text-align:right;background:var(--card2);border-bottom:.5px solid var(--sep);white-space:nowrap;}
 th:first-child{text-align:left;}
-td{font-size:13px;padding:10px 12px;text-align:right;border-bottom:.5px solid var(--sep);font-variant-numeric:tabular-nums;color:var(--text);white-space:nowrap;}
+td{font-size:15px;padding:10px 12px;text-align:right;border-bottom:.5px solid var(--sep);font-variant-numeric:tabular-nums;color:var(--text);white-space:nowrap;}
 td:first-child{text-align:left;color:var(--muted);}
 tr:last-child td{border-bottom:none;}
 .tr-total td{background:var(--card2);font-weight:700;color:var(--text)!important;}
