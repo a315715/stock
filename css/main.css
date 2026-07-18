@@ -8,7 +8,7 @@
   --bg0:#000000;--card:#1c1c1e;--card2:#2c2c2e;
   --sep:rgba(255,255,255,.09);
   --text:#ffffff;--muted:#98989d;--hint:#636366;
-  --red:#ff453a;--green:#30d158;--gold:#ff9f0a;--blue:#0a84ff;
+  --red:#ff453a;--green:#30d158;--gold:#c9a876;--blue:#0a84ff;
   --blue-bg:rgba(10,132,255,0.16);
   --bar-bg:rgba(0,0,0,.78);
   --mono:'JetBrains Mono','SF Mono','Courier New',monospace;
@@ -224,7 +224,6 @@ tr:last-child td{border-bottom:none;}
 
 #divHistTable th:first-child,#divHistTable td:first-child{
   position:sticky;left:0;z-index:1;
-  box-shadow:2px 0 6px rgba(0,0,0,.18);
 }
 #divHistTable td:first-child{background:var(--card);}
 #divHistTable th:first-child{background:var(--card2);z-index:2;}
@@ -232,7 +231,6 @@ tr:last-child td{border-bottom:none;}
 /* 記錄頁「最近交易」表格也是同樣的問題（欄位多、易需要滑動），第一欄固定住 */
 #recentTxTable th:first-child,#recentTxTable td:first-child{
   position:sticky;left:0;z-index:1;
-  box-shadow:2px 0 6px rgba(0,0,0,.18);
 }
 #recentTxTable td:first-child{background:var(--card);}
 #recentTxTable th:first-child{background:var(--card2);z-index:2;}

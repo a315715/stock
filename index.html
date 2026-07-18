@@ -998,7 +998,7 @@ function renderDividendHistoryTable(){
   headRow.innerHTML='<th>股票</th>'+years.map(y=>`<th>${y}</th>`).join('')+'<th>累計</th>';
   body.innerHTML=data.map(d=>{
     const closedTag=d.isHeld?'':' <span style="color:var(--hint);">(已出清)</span>';
-    return `<tr><td>${d.ticker}<br><span style="color:var(--muted);font-size:12px;">${d.name}</span>${closedTag}</td>`
+    return `<tr><td>${d.ticker}<br><span style="font-size:12px;">${d.name}</span>${closedTag}</td>`
       +years.map(y=>`<td>${d.years[y]?fmtN(d.years[y]):'—'}</td>`).join('')
       +`<td class="gold">${fmtN(d.total)}</td></tr>`;
   }).join('');
