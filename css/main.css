@@ -115,10 +115,10 @@ body{color:var(--text);font-family:-apple-system,"SF Pro Display","PingFang TC",
 /* stock card — v3.0：整組包在 .list-wrap 卡片裡，row之間用--sep分隔，
    不再各自獨立躺在頁面background上（見 index.html 的 .list-wrap 容器） */
 .list-wrap{margin:0 16px 20px;background:var(--card);border-radius:var(--radius);overflow:hidden;}
-.scard{display:flex;flex-wrap:wrap;align-items:center;padding:13px 16px;border-bottom:.5px solid var(--sep);cursor:pointer;-webkit-tap-highlight-color:transparent;gap:12px;min-height:44px;}
+.scard{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:center;padding:13px 16px;border-bottom:.5px solid var(--sep);cursor:pointer;-webkit-tap-highlight-color:transparent;gap:8px;min-height:44px;}
 .list-wrap .scard:last-child{border-bottom:none;}
 .scard:active{background:var(--card2);}
-.scard-left{flex:1;min-width:0;}
+.scard-left{text-align:left;min-width:0;}
 .scard-name{font-size:18px;font-weight:600;color:var(--text);}
 .scard-shares{font-size:14px;color:var(--muted);margin-top:2px;}
 .scard-mid{text-align:center;min-width:90px;}
