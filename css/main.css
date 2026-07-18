@@ -216,6 +216,26 @@ td{font-size:15px;padding:10px 12px;text-align:right;border-bottom:.5px solid va
 td:first-child{text-align:left;color:var(--muted);}
 tr:last-child td{border-bottom:none;}
 .tr-total td{background:var(--card2);font-weight:700;color:var(--text)!important;}
+
+/* v3.0：股票代號/名稱是每一列最主要的識別資訊，不該用 --muted 弱化，
+   之前沿用表格通用樣式（td:first-child預設是muted），這裡針對這兩張表覆蓋回正常對比度。
+   股利表格裡的股票「名稱」本身仍用小字+muted 做次要層級，但整個欄位不再整體變淡。 */
+#divHistTable td:first-child,#recentTxTable td:first-child{color:var(--text);}
+
+#divHistTable th:first-child,#divHistTable td:first-child{
+  position:sticky;left:0;z-index:1;
+  box-shadow:2px 0 6px rgba(0,0,0,.18);
+}
+#divHistTable td:first-child{background:var(--card);}
+#divHistTable th:first-child{background:var(--card2);z-index:2;}
+
+/* 記錄頁「最近交易」表格也是同樣的問題（欄位多、易需要滑動），第一欄固定住 */
+#recentTxTable th:first-child,#recentTxTable td:first-child{
+  position:sticky;left:0;z-index:1;
+  box-shadow:2px 0 6px rgba(0,0,0,.18);
+}
+#recentTxTable td:first-child{background:var(--card);}
+#recentTxTable th:first-child{background:var(--card2);z-index:2;}
 .tbl-action{padding:10px 16px 4px;text-align:right;}
 
 /* dividend stats */
