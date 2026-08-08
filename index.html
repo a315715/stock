@@ -377,6 +377,17 @@
         </div>
       </div>
       <div class="data-panel-section">
+        <div class="data-panel-title">備份</div>
+        <div class="muted">匯出目前資料存成一個檔案，之後可以匯入回來。跟下面的EventLog匯入是兩件事——這裡單純是本機資料備份，不會解析交易明細，也不會跟EventLog的資料互相核對。</div>
+        <button class="btn-secondary" onclick="triggerExportBackup()" style="margin:8px 0;">匯出目前資料</button>
+        <div style="margin-top:10px;">
+          <input type="file" id="backupFile" accept=".json" style="display:block;margin-bottom:8px;">
+          <button class="btn-primary" onclick="handleImportBackupFile()">還原備份</button>
+        </div>
+        <div id="importBackupResultArea"></div>
+        <div id="importBackupRestoreArea" style="margin-top:10px;"></div>
+      </div>
+      <div class="data-panel-section">
         <div class="data-panel-title">EventLog 匯入</div>
         <div class="muted">只會匯入「目前持有」的股票（依 04_股票基本資料的「目前狀態」判斷），已出清股票不受影響。重新匯入會整批覆蓋這些股票原有的交易/股利記錄。若檔案含「06_各股歷年股利」分頁，會一併更新「統計」頁的歷年股利表格（含已出清股票）；若含「02_損益總表」分頁，會一併更新「已實現損益」權威數字。</div>
         <input type="file" id="eventLogFile" accept=".xlsx" style="margin:8px 0;display:block;">
@@ -1559,6 +1570,9 @@ function openDataPanel(){
   } else {
     restoreEl.innerHTML=`<div class="data-panel-title">還原</div><div class="muted">目前沒有可還原的備份資料。</div>`;
   }
+  renderImportBackupRestoreArea();
+  document.getElementById('backupFile').value='';
+  document.getElementById('importBackupResultArea').innerHTML='';
   document.getElementById('eventLogFile').value='';
   document.getElementById('importResultArea').innerHTML='';
   document.getElementById('btnImportEventLog').disabled=false;
@@ -1573,6 +1587,68 @@ function restoreBackupUI(){
   } else {
     alert('還原失敗，找不到備份資料。');
   }
+}
+
+// ══ 匯出/匯入備份（v3.2） ═══════════════════════════════
+function triggerExportBackup(){
+  const payload = exportBackupData();
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const ts = new Date();
+  const pad=n=>String(n).padStart(2,'0');
+  const fname = `台股損益工具備份_${ts.getFullYear()}${pad(ts.getMonth()+1)}${pad(ts.getDate())}_${pad(ts.getHours())}${pad(ts.getMinutes())}.json`;
+  a.href = url; a.download = fname;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function renderImportBackupRestoreArea(){
+  const el = document.getElementById('importBackupRestoreArea');
+  if(hasImportBackup()){
+    const meta = getImportBackupMeta();
+    const when = meta ? new Date(meta.backedUpAt).toLocaleString('zh-TW') : '未知時間';
+    el.innerHTML = `<div class="muted">偵測到一份「上次匯入備份前」的安全備份（${when}），如果剛剛的匯入結果不對，可以還原回去。</div>
+      <button class="btn-danger" onclick="restoreImportBackupUI()" style="margin-top:6px;">還原到匯入前資料</button>`;
+  } else {
+    el.innerHTML = '';
+  }
+}
+function restoreImportBackupUI(){
+  if(!confirm('還原後，目前資料會被取代為上次匯入備份前的資料，確定要還原嗎？'))return;
+  if(restoreFromImportBackup()){
+    alert('已還原，頁面即將重新整理。');
+    location.reload();
+  } else {
+    alert('還原失敗，找不到備份資料。');
+  }
+}
+function handleImportBackupFile(){
+  const fileInput = document.getElementById('backupFile');
+  const resultArea = document.getElementById('importBackupResultArea');
+  const file = fileInput.files[0];
+  if(!file){ alert('請先選擇備份檔案'); return; }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    let parsed;
+    try{
+      parsed = JSON.parse(e.target.result);
+    }catch(err){
+      resultArea.innerHTML = `<div class="import-error">檔案不是有效的JSON格式</div>`;
+      return;
+    }
+    const stockCount = parsed && parsed.data && parsed.data.stocks ? Object.keys(parsed.data.stocks).length : 0;
+    const when = parsed && parsed.exportedAt ? new Date(parsed.exportedAt).toLocaleString('zh-TW') : '未知時間';
+    const ok = confirm(`這份備份匯出於 ${when}，共 ${stockCount} 檔股票。\n確定要用這份備份覆蓋目前的資料嗎？（目前資料會先自動備份一份，可以還原）`);
+    if(!ok) return;
+    const result = importBackupData(parsed);
+    if(result.success){
+      resultArea.innerHTML = `<div class="muted">匯入成功，共 ${stockCount} 檔股票，頁面即將重新整理。</div>`;
+      setTimeout(()=>location.reload(), 1200);
+    } else {
+      resultArea.innerHTML = `<div class="import-error">${result.error}</div>`;
+    }
+  };
+  reader.readAsText(file);
 }
 
 // ══ EVENTLOG 匯入（Spec.md / SpecEventLogImport.md） ═══════════════════

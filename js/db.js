@@ -15,6 +15,12 @@ const DB_KEY         = 'tstock_v2';
 const BACKUP_KEY     = 'tstock_v2_backup_pre_migration';
 const BACKUP_META_KEY= 'tstock_backup_meta';
 const THEME_KEY       = 'tstock_theme'; // v3.0：'dark'|'light'，跟 DB 資料本身無關，獨立存放
+// v3.2：匯出/匯入備份用的key，刻意跟上面 migration 用的 BACKUP_KEY 分開，
+// 兩者用途不同（migration是自動觸發、只保留最早一份；這裡是使用者主動
+// 匯入備份時的安全網，每次匯入前都會覆寫成「匯入前的當下資料」），混用
+// 會互相覆蓋，見Architecture V3.2 §2.2。
+const IMPORT_BACKUP_KEY      = 'tstock_v2_backup_pre_import';
+const IMPORT_BACKUP_META_KEY = 'tstock_import_backup_meta';
 
 // ══ UUID ══════════════════════════════════════════════
 // 優先使用瀏覽器原生 crypto.randomUUID()；不支援時退回 fallback，
@@ -208,6 +214,56 @@ function restoreFromBackup(){
 }
 
 function getStock(t){ return DB.stocks[t]; }
+
+// ══ 匯出/匯入備份（v3.2） ═══════════════════════════════
+// 純本機JSON備份，跟EventLog匯入是兩件事：EventLog是資料權威來源的匯入，
+// 這裡單純是「把目前localStorage的內容存一份、之後能讀回來」，不做CSV/
+// 券商格式解析、不做逐筆比對，見Architecture V3.2 §1 Non-Goals。
+function exportBackupData(){
+  return {
+    exportedAt: new Date().toISOString(),
+    schemaVersion: SCHEMA_VERSION,
+    data: DB
+  };
+}
+function hasImportBackup(){
+  return !!localStorage.getItem(IMPORT_BACKUP_KEY);
+}
+function getImportBackupMeta(){
+  try{ return JSON.parse(localStorage.getItem(IMPORT_BACKUP_META_KEY)||'null'); }
+  catch(e){ return null; }
+}
+function restoreFromImportBackup(){
+  const backup = localStorage.getItem(IMPORT_BACKUP_KEY);
+  if(!backup) return false;
+  localStorage.setItem(DB_KEY, backup);
+  return true;
+}
+// 匯入前，把「匯入當下的現有資料」存一份安全網備份，每次匯入都會覆寫成
+// 最新一次的「匯入前」狀態（不像migration備份只保留最早一份——這裡的
+// 情境是使用者可能匯入好幾次不同備份檔，只需要保留「上一次匯入前」）。
+function backupBeforeImport(){
+  const raw = localStorage.getItem(DB_KEY);
+  if(raw){
+    localStorage.setItem(IMPORT_BACKUP_KEY, raw);
+    localStorage.setItem(IMPORT_BACKUP_META_KEY, JSON.stringify({ backedUpAt: new Date().toISOString() }));
+  }
+}
+// 驗證+寫入匯入的備份資料。schemaVersion不符時直接拒絕，不嘗試自動轉換
+// （見Architecture V3.2 §2.2，避免用不確定相容的轉換邏輯把資料弄壞）。
+// 回傳 {success, error?}
+function importBackupData(parsed){
+  if(!parsed || typeof parsed!=='object' || !parsed.data){
+    return { success:false, error:'檔案格式不正確，不是有效的備份檔' };
+  }
+  if(parsed.schemaVersion !== SCHEMA_VERSION){
+    return { success:false, error:`這份備份的資料格式版本(${parsed.schemaVersion})跟目前工具版本(${SCHEMA_VERSION})不符，暫不支援匯入` };
+  }
+  backupBeforeImport();
+  DB = parsed.data;
+  saveDB();
+  return { success:true };
+}
 
 // ══ 主題偏好（v3.0） ═══════════════════════════════════
 // 跟 DB 資料本身無關（不是投資組合資料），但一樣走 localStorage，
