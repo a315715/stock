@@ -524,6 +524,14 @@ function renderOverview(){
   records.forEach(r=>{
     const s=r.s, price=r.price, pnl=r.pnl, ret=r.ret;
     const pc=pnl>=0?'red':'green';
+    // v3.2 item①：拿掉「買均」，改成單一均價欄位跟不含息/含息切換連動。
+    // 含息模式＝股息還原成本：(總成本−累計股息)÷股數，長期持有高股息股票
+    // 可能算出負值（配息已經超過原始成本），這是預期中的正常情況，不是bug，
+    // 數學上跟現有pnl含息公式(mv−totalCost+div)完全等價，沒有重複計算股息。
+    const avgLabel = returnMode==='total' ? '成本均(含息)' : '成本均';
+    const avgVal = returnMode==='total'
+      ? (s.shares>0 ? (s.totalCost - calcTotalDiv(s)) / s.shares : 0)
+      : s.avgCost;
     const card=document.createElement('div');
     card.className='scard';
     card.onclick=()=>openDetail(s.ticker);
@@ -540,11 +548,11 @@ function renderOverview(){
         <div class="scard-shares">${fmtN(s.shares)} 股</div>
       </div>
       <div class="scard-mid">
-        <div class="scard-price ${pc}">${price.toFixed(price%1===0?0:1)}</div>
+        <div class="scard-price ${pc}">${fmtPrice(price)}</div>
         <div class="scard-chg ${pc}">${s.lastPrice?'即時':'成本均'}</div>
       </div>
       <div class="scard-right">
-        <div class="scard-cost">成本均 ${s.avgCost.toFixed(2)} / 買均 ${(s.buyAvg||s.avgCost).toFixed(2)}</div>
+        <div class="scard-cost">${avgLabel} ${avgVal.toFixed(2)}</div>
         <div class="scard-pnl ${pc}">${nt(pnl)}</div>
         <div class="scard-pct ${pc}">${ret>=0?'+':''}${ret.toFixed(2)}%</div>
       </div>${s.calcError?'<div class="scard-warning" title="'+s.calcError.message+'">⚠️ 交易明細有誤</div>':''}`;
@@ -749,7 +757,7 @@ function loadDetailPrice(s){
   // 用 setTimeout 確保 iOS 上 DOM 已就緒再填入值
   setTimeout(() => {
     inp.value = price;
-    document.getElementById('dPriceVal').textContent = price.toFixed(price % 1 === 0 ? 0 : 2);
+    document.getElementById('dPriceVal').textContent = fmtPrice(price);
   }, 0);
   if(s.lastPrice){
     document.getElementById('fTxt').textContent='上次記錄';
@@ -811,7 +819,7 @@ function updateDetail(){
   bgEl.textContent=(gapPct>=0?'+':'')+gapPct.toFixed(1)+'%';
   bgEl.className='be-gap '+(gapPct>=0?'red':'green');
   document.getElementById('beRight').textContent=fmtN(maxP,0)+'元';
-  document.getElementById('dPriceVal').textContent=price.toFixed(price%1===0?0:2);
+  document.getElementById('dPriceVal').textContent=fmtPrice(price);
   document.getElementById('dPriceChg').textContent=(gap>=0?'+':'')+gap.toFixed(2)+'元';
   document.getElementById('dPriceChg').className='dpp-chg '+(gap>=0?'red':'green');
 
@@ -987,7 +995,7 @@ function renderStats(){
     <div class="stat-card"><div class="stat-card-lbl">含息總損益</div><div class="stat-card-val ${(totalPnl+totalDiv)>=0?'red':'green'}">${nt(totalPnl+totalDiv)}</div></div>
     <div class="stat-card"><div class="stat-card-lbl">報酬率</div><div class="stat-card-val ${totalPnl>=0?'red':'green'}">${totalCost?(totalPnl/totalCost*100).toFixed(2)+'%':'—'}</div></div>
     <div class="stat-card"><div class="stat-card-lbl">含息報酬率</div><div class="stat-card-val ${(totalPnl+totalDiv)>=0?'red':'green'}">${totalCost?((totalPnl+totalDiv)/totalCost*100).toFixed(2)+'%':'—'}</div></div>
-    <div class="stat-card"><div class="stat-card-lbl">目前持有股票數</div><div class="stat-card-val">${stocks.length} 支</div></div>
+    <div class="stat-card"><div class="stat-card-lbl">目前持有股票數</div><div class="stat-card-val">${stocks.length} 檔</div></div>
   `;
 
   renderDividendHistoryTable();
@@ -1489,6 +1497,11 @@ function nt(n){
   return(n>=0?'+':'-')+'NT$'+s;
 }
 function fmtN(n,d=0){return n.toLocaleString('zh-TW',{minimumFractionDigits:d,maximumFractionDigits:d});}
+// v3.2：股價格式化共用函式——四捨五入到小數2位、自動去掉尾端多餘的0
+// （例：49.82→49.82，49.80→49.8，50.00→50），取代原本總覽卡片跟明細頁
+// 兩處分別各寫一次、邏輯還不完全一致（明細頁多一步去尾0)的舊寫法，
+// 兩處統一改呼叫這個函式，避免以後又分岔。
+function fmtPrice(n){ return Number(n.toFixed(2)).toString(); }
 
 // ══ CSV EXPORT ════════════════════════════════════════
 function downloadCSV(filename, rows){
