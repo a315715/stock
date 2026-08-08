@@ -1,8 +1,16 @@
 name: 更新台股股價
+
 on:
   schedule:
-    # 台灣時間 09:05、10:05、11:05、12:05、13:05（UTC+8）
-    - cron: '5 1,2,3,4,5 * * 1-5'
+    # 開盤後（台灣時間 09:10）
+    - cron: '10 1 * * 1-5'
+
+    # 上午盤（台灣時間 11:10）
+    - cron: '10 3 * * 1-5'
+
+    # 收盤後（台灣時間 13:35）
+    - cron: '35 5 * * 1-5'
+
   workflow_dispatch: # 允許手動觸發
 
 # 避免同時間執行多個更新工作
@@ -13,13 +21,16 @@ concurrency:
 jobs:
   fetch-prices:
     runs-on: ubuntu-latest
+
     permissions:
-      contents: write  # 允許 commit 回 repo
+      contents: write
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -34,13 +45,19 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add data/prices.json
+
           # 沒有任何變更就直接結束
           if git diff --cached --quiet; then
             echo "No changes detected."
             exit 0
           fi
+
           git commit -m "chore: update prices $(date -u +'%Y-%m-%d %H:%M UTC')"
-          # 同步遠端最新版本，避免 fetch first 失敗
+
+          # 同步遠端最新版本，避免 push 衝突
           git pull --rebase origin main
+
+          # 推送更新
           git push origin HEAD:main
