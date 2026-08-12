@@ -4,9 +4,15 @@
 - 在 GitHub Actions 伺服器端執行，不受瀏覽器 CORS 限制
 - 資料來源：Yahoo Finance API
 - 輸出：data/prices.json
-"""
 
+2026/07/16 修改：抓取完成後，若所有股票的 price/prevClose/change/changePct
+四個欄位都跟現有 data/prices.json 完全相同，就跳過寫入，避免沒有股價變化時
+也產生新的 Git Commit（例如假日、收盤後重複執行、Yahoo 回傳同一組昨收資料
+的情況）。比較時刻意排除 updated/_updated/_ok/_fail 這些每次執行必然不同的
+欄位，JSON 結構、既有欄位名稱完全不變。
+"""
 import json
+import os
 import urllib.request
 import urllib.error
 from datetime import datetime, timezone, timedelta
@@ -31,24 +37,30 @@ TICKERS = [
 # 債券 ETF 在 TPEx（櫃買）掛牌，symbol 要用 .TWO 而不是 .TW
 BOND_ETF_TICKERS = ('00937B',)
 
+# 寫入 data/prices.json 時，比較新舊資料是否有變化，只看這幾個欄位
+COMPARE_FIELDS = ('price', 'prevClose', 'change', 'changePct')
+
+PRICES_PATH = 'data/prices.json'
+
+
 def fetch_price(ticker):
     """抓取單一股票現價，回傳 (price, prev_close, source, prev_source) 或 (None, None, None, None)。
+
     source 是診斷用欄位：'live'＝Yahoo 有回傳 regularMarketPrice（真的即時價）、
     'prevClose_fallback'＝Yahoo 沒回傳 regularMarketPrice，退回用昨收價頂替
     （這種情況下 price==prevClose，change/changePct 一定是 0，不代表今天真的平盤）。
+
     2026/07/13 新增：之前發現 changePct 全部顯示 0，追查後才知道是這個 fallback
     情況一直發生、但沒有任何紀錄可以確認，這次先加診斷欄位，下次排程跑完看
     log／prices.json 裡的 source 欄位，才能確認是 Yahoo 真的沒有即時資料
     （例如非交易時段），還是查詢方式本身有問題。
     """
     symbol = ticker + ('.TWO' if ticker in BOND_ETF_TICKERS else '.TW')
-
     url = f'https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=1d'
     headers = {
         'User-Agent': 'Mozilla/5.0',
         'Accept': 'application/json',
     }
-
     try:
         req = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(req, timeout=10) as resp:
@@ -69,6 +81,7 @@ def fetch_price(ticker):
             print(f'  {ticker} fallback 也失敗: {e2}')
             return None, None, None, None
 
+
 def _extract_price(meta):
     """2026/07/13 修正：追到「今日漲跌幅排行沒有數值」的根因——Yahoo 對這批
     台股 symbol 的 meta 裡常常整個沒有 previousClose 這個 key（不是 0 或
@@ -87,6 +100,7 @@ def _extract_price(meta):
     if prev is None:
         prev = meta.get('chartPreviousClose')
         prev_source = 'chartPreviousClose'
+
     if live_price:
         source = 'live'
         price = live_price
@@ -96,10 +110,50 @@ def _extract_price(meta):
         # 標記起來，不要讓它看起來像「今天真的平盤」。
         source = 'prevClose_fallback'
         price = prev
+
     if price is None:
         raise ValueError('meta 裡連 regularMarketPrice、previousClose、chartPreviousClose 都沒有')
+
     prev_final = prev if prev is not None else price
     return round(float(price), 2), round(float(prev_final), 2), source, prev_source
+
+
+def load_existing_prices():
+    """讀取現有的 data/prices.json，檔案不存在（第一次執行）則回傳 None。"""
+    if not os.path.exists(PRICES_PATH):
+        return None
+    try:
+        with open(PRICES_PATH, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        # 現有檔案讀不出來（例如損毀），視同沒有舊資料，照常抓新的並寫入
+        print(f'讀取現有 {PRICES_PATH} 失敗，視為第一次執行: {e}')
+        return None
+
+
+def has_price_changes(old_prices, new_results):
+    """比較新舊資料的 price/prevClose/change/changePct 是否完全相同。
+
+    只要有任一檔股票、任一比較欄位不同，或股票清單本身不同（新增/移除
+    追蹤標的），就視為有變化。updated/_updated/_ok/_fail 這些每次執行
+    必然不同的欄位，刻意不列入比較。
+    """
+    if old_prices is None:
+        return True
+
+    old_data = old_prices.get('prices', {})
+
+    if set(old_data.keys()) != set(new_results.keys()):
+        return True
+
+    for ticker, new_info in new_results.items():
+        old_info = old_data.get(ticker, {})
+        for field in COMPARE_FIELDS:
+            if old_info.get(field) != new_info.get(field):
+                return True
+
+    return False
+
 
 def main():
     # 台灣時間 UTC+8
@@ -108,6 +162,7 @@ def main():
     updated = now_tw.strftime('%Y-%m-%dT%H:%M:%S+08:00')
 
     print(f'開始抓取股價，時間：{updated}')
+
     results = {}
     ok, fail = 0, 0
     live_count, fallback_count = 0, 0
@@ -115,6 +170,7 @@ def main():
     for ticker in TICKERS:
         print(f'  抓取 {ticker}...', end=' ')
         price, prev, source, prev_source = fetch_price(ticker)
+
         if price is not None:
             change = round(price - prev, 2) if prev else 0
             change_pct = round(change / prev * 100, 2) if prev else 0
@@ -124,7 +180,7 @@ def main():
                 'change': change,
                 'changePct': change_pct,
                 'updated': updated,
-                'source': source,  # 診斷欄位：'live' 或 'prevClose_fallback'，見 fetch_price() 說明
+                'source': source,        # 診斷欄位：'live' 或 'prevClose_fallback'，見 fetch_price() 說明
                 'prevSource': prev_source,  # 診斷欄位：昨收價是從 'previousClose' 還是 'chartPreviousClose' 拿到的
             }
             if source == 'live':
@@ -139,6 +195,13 @@ def main():
             print('FAIL')
             fail += 1
 
+    existing = load_existing_prices()
+
+    if not has_price_changes(existing, results):
+        print('\nNo price changes detected.')
+        print('Skip updating prices.json.')
+        return
+
     # 加上整體更新時間；_liveCount/_fallbackCount 是這次新增的診斷統計，
     # 用來確認「regularMarketPrice 缺失」是不是每次都發生
     output = {
@@ -150,14 +213,15 @@ def main():
         'prices': results,
     }
 
-    with open('data/prices.json', 'w', encoding='utf-8') as f:
+    with open(PRICES_PATH, 'w', encoding='utf-8') as f:
         json.dump(output, f, ensure_ascii=False, indent=2)
 
     print(f'\n完成：{ok} 支成功（{live_count} 即時／{fallback_count} 退回昨收價），{fail} 支失敗')
     if fallback_count > 0:
         print(f'⚠️ 有 {fallback_count} 支股票 Yahoo 沒回傳即時價（regularMarketPrice 缺失），'
               f'這幾支的 changePct 會是 0，不代表今天真的平盤')
-    print(f'已寫入 data/prices.json')
+    print(f'已寫入 {PRICES_PATH}')
+
 
 if __name__ == '__main__':
     main()
