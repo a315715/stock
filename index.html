@@ -60,7 +60,7 @@
             <div class="hero-stat-val" id="heroMV">—</div>
           </div>
           <div class="hero-stat">
-            <div class="hero-stat-lbl">已實現損益</div>
+            <div class="hero-stat-lbl" id="heroRealizedLbl">已實現損益</div>
             <div class="hero-stat-val" id="heroRealized">—</div>
           </div>
           <div class="hero-stat">
@@ -603,6 +603,7 @@ function renderHero(totalMV,totalCost,totalDiv,totalRealized,stockCount){
   const hr=document.getElementById('heroRealized');
   hr.textContent=nt(totalRealized);
   hr.className='hero-stat-val '+(totalRealized>=0?'red':'green');
+  document.getElementById('heroRealizedLbl').textContent = returnMode==='total' ? '已實現損益(含息)' : '已實現損益';
   document.getElementById('heroDiv').textContent='NT$'+fmtMoney(totalDiv);
 }
 
@@ -660,6 +661,18 @@ function toggleClosed(){
   document.getElementById('closedToggleIcon').textContent = closedExpanded ? '▼ 收合' : '▶ 展開';
 }
 
+// v3.3：已結清/已實現損益要支援含息切換，需要能查到「任一ticker」的累計股息，
+// 不只是getClosedStocksData()涵蓋的已結清清單（getTotalRealizedPnl()涵蓋的
+// 範圍更廣，包含目前還持有、但過去部分賣出過的股票，如鴻海/力成）。
+// 優先查DB.stocks（有完整交易/股利明細可以用calcTotalDiv算）；查不到才退回
+// 靜態種子資料CLOSED_STOCKS裡預先算好的dividends欄位（沒有逐筆明細可算）。
+function getTotalDivByTicker(ticker){
+  if(DB.stocks[ticker]) return calcTotalDiv(DB.stocks[ticker]);
+  const closed = typeof CLOSED_STOCKS !== 'undefined' ? CLOSED_STOCKS : [];
+  const found = closed.find(c=>c.ticker===ticker);
+  return found ? (found.dividends||0) : 0;
+}
+
 // getClosedStocksData()：純函式，彙整「已結清」清單（用於清單卡片顯示）。
 // v1.5：每筆的 pnl 優先讀 DB.realizedPnlByTicker（EventLog 02_損益總表 權威數字，
 // 已套用 03_已知事項 校正、平均成本法算好）；查不到（例如手動新增、不在 EventLog
@@ -681,14 +694,14 @@ function getClosedStocksData(){
 
   const byTicker = DB.realizedPnlByTicker || {};
   all.forEach(c => {
-    const legacyPnl = c.sellIncome + c.buyCost + c.dividends;
-    if(typeof byTicker[c.ticker] === 'number'){
-      c.pnl = byTicker[c.ticker];
-      c.isApprox = true;
-    } else {
-      c.pnl = legacyPnl;
-      c.isApprox = false;
-    }
+    // v3.3：修正一個順便發現的既有不一致——舊寫法legacyPnl(sellIncome+buyCost+dividends)
+    // 不管含不含息都會把股息算進去，但EventLog權威數字(byTicker)完全不含股息，
+    // 兩條路徑對「含不含息」的認定本來就對不起來。這次統一：capitalGain一律
+    // 不含股息，含息模式時才額外加c.dividends，兩條路徑處理方式一致。
+    const hasEventLogData = typeof byTicker[c.ticker] === 'number';
+    const capitalGain = hasEventLogData ? byTicker[c.ticker] : (c.sellIncome + c.buyCost);
+    c.isApprox = hasEventLogData;
+    c.pnl = returnMode === 'total' ? capitalGain + c.dividends : capitalGain;
   });
   return {all};
 }
@@ -703,7 +716,10 @@ function getTotalRealizedPnl(){
   const byTicker = DB.realizedPnlByTicker || {};
   const keys = Object.keys(byTicker);
   if(keys.length){
-    return keys.reduce((sum,k)=>sum+byTicker[k], 0);
+    return keys.reduce((sum,k)=>{
+      const div = returnMode==='total' ? getTotalDivByTicker(k) : 0;
+      return sum + byTicker[k] + div;
+    }, 0);
   }
   const {all} = getClosedStocksData();
   return all.reduce((sum,c)=>sum+c.pnl, 0);
@@ -737,7 +753,7 @@ function renderClosedStocks(){
         <div style="font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;">${hasCostBasis?'NT$'+fmtN(Math.abs(c.buyCost)):'—'}</div>
       </div>
       <div class="scard-right">
-        <div class="scard-cost">已實現損益</div>
+        <div class="scard-cost">${returnMode==='total' ? '已實現損益(含息)' : '已實現損益'}</div>
         <div class="scard-pnl ${pc}">${nt(pnl)}</div>
         <div class="scard-pct ${pc}">${retLabel}</div>
       </div>`;
