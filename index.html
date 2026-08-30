@@ -664,9 +664,13 @@ function toggleClosed(){
 // v3.3：已結清/已實現損益要支援含息切換，需要能查到「任一ticker」的累計股息，
 // 不只是getClosedStocksData()涵蓋的已結清清單（getTotalRealizedPnl()涵蓋的
 // 範圍更廣，包含目前還持有、但過去部分賣出過的股票，如鴻海/力成）。
-// 優先查DB.stocks（有完整交易/股利明細可以用calcTotalDiv算）；查不到才退回
-// 靜態種子資料CLOSED_STOCKS裡預先算好的dividends欄位（沒有逐筆明細可算）。
+// 優先查DB.totalDivByTicker（EventLog 02_損益總表的I欄，涵蓋全部35檔股票、
+// 權威且不會過時）；查不到才退回DB.stocks用calcTotalDiv算（例如手動新增、
+// 尚未重新匯入過EventLog的情況）；最後才退回靜態種子資料CLOSED_STOCKS
+// （會過時，只當最後防線）。
 function getTotalDivByTicker(ticker){
+  const authoritative = DB.totalDivByTicker || {};
+  if(typeof authoritative[ticker]==='number') return authoritative[ticker];
   if(DB.stocks[ticker]) return calcTotalDiv(DB.stocks[ticker]);
   const closed = typeof CLOSED_STOCKS !== 'undefined' ? CLOSED_STOCKS : [];
   const found = closed.find(c=>c.ticker===ticker);
@@ -694,7 +698,12 @@ function getClosedStocksData(){
 
   const byTicker = DB.realizedPnlByTicker || {};
   all.forEach(c => {
-    // v3.3：修正一個順便發現的既有不一致——舊寫法legacyPnl(sellIncome+buyCost+dividends)
+    // v3.3：c.dividends原本來自靜態種子資料或calcTotalDiv(s)，已結清股票
+    // （不在DB.stocks裡）查不到DB.stocks時只能退回種子資料，會過時（漢唐這次
+    // 補的12,000元股息就是這樣被漏掉的）。這裡改用getTotalDivByTicker()權威
+    // 查詢覆蓋掉，該函式已經處理好EventLog權威資料優先、逐層退回的邏輯。
+    c.dividends = getTotalDivByTicker(c.ticker);
+    // 修正一個順便發現的既有不一致——舊寫法legacyPnl(sellIncome+buyCost+dividends)
     // 不管含不含息都會把股息算進去，但EventLog權威數字(byTicker)完全不含股息，
     // 兩條路徑對「含不含息」的認定本來就對不起來。這次統一：capitalGain一律
     // 不含股息，含息模式時才額外加c.dividends，兩條路徑處理方式一致。
@@ -1734,27 +1743,35 @@ function readEventLogWorkbook(fileBuffer){
 }
 
 // ── 已實現損益權威數字解析（02_損益總表，v1.5新增，選填分頁）──
-// 純函式：讀 J欄「已實現損益」，回傳 {ticker: 已實現損益} 的物件。讀到「合計」列
-// 就停止（那是加總列，不是個股資料）。涵蓋全部股票（含目前持有中的，過去部分賣出
-// 的價差也算已實現損益，不是只有已出清股票才有）。不重新用平均成本法算一次，
-// 直接信任這張表（已套用 03_已知事項 的驗證校正），避免跟 calcHolding() 各算一套、
-// 兜不起來。
+// 純函式：讀 J欄「已實現損益」＋I欄「累計現金股利」，回傳
+// {pnlByTicker, divByTicker}。讀到「合計」列就停止（那是加總列，不是個股資料）。
+// 涵蓋全部股票（含目前持有中的，過去部分賣出的價差也算已實現損益，不是只有
+// 已出清股票才有）。不重新用平均成本法算一次，直接信任這張表（已套用
+// 03_已知事項 的驗證校正），避免跟 calcHolding() 各算一套、兜不起來。
+// v3.3：原本只抓J欄，I欄(累計現金股利)被忽略——已結清股票不在DB.stocks裡
+// （importFromEventLog()只匯入目前持有的），含息模式查不到已結清股票的股息，
+// 退回查defaultData.js的靜態CLOSED_STOCKS種子資料，但那份資料不會跟著
+// EventLog更新，會過時（漢唐這次補的12,000元股息就是這樣被漏掉的）。
+// 這裡I欄一起抓，涵蓋全部35檔股票，不管有沒有在DB.stocks裡都查得到，
+// 不再依賴會過時的種子資料。
 function parseRealizedPnlSheet(rows){
-  if(!rows)return {};
+  if(!rows)return {pnlByTicker:{},divByTicker:{}};
   const headerIdx=rows.findIndex(r=>r&&r[0]==='代碼');
-  if(headerIdx===-1)return {};
+  if(headerIdx===-1)return {pnlByTicker:{},divByTicker:{}};
   const header=rows[headerIdx];
   const jCol=header.findIndex(h=>h==='已實現損益');
-  if(jCol===-1)return {};
+  const iCol=header.findIndex(h=>h==='累計現金股利');
+  if(jCol===-1)return {pnlByTicker:{},divByTicker:{}};
 
-  const result={};
+  const pnlByTicker={}, divByTicker={};
   for(let i=headerIdx+1;i<rows.length;i++){
     const r=rows[i];
     if(!r||!r[0])continue;
     if(r[0]==='合計')break;
-    if(typeof r[jCol]==='number')result[r[0]]=Math.round(r[jCol]);
+    if(typeof r[jCol]==='number')pnlByTicker[r[0]]=Math.round(r[jCol]);
+    if(iCol!==-1 && typeof r[iCol]==='number')divByTicker[r[0]]=Math.round(r[iCol]);
   }
-  return result;
+  return {pnlByTicker,divByTicker};
 }
 
 // ── 各股歷年股利彙總表解析（06_各股歷年股利，v1.3新增，選填分頁）──
@@ -1911,7 +1928,11 @@ function importFromEventLog(fileBuffer){
   DB.dividendHistory = parseDividendHistorySheet(parsed.dividendHistoryRaw, parsed.stockMaster);
 
   // v1.5：已實現損益權威數字，同樣獨立存放，不影響 DB.stocks／calcHolding()。
-  DB.realizedPnlByTicker = parseRealizedPnlSheet(parsed.realizedPnlRaw);
+  // v3.3：一併存累計現金股利權威數字(DB.totalDivByTicker)，涵蓋全部35檔股票，
+  // 已結清股票（不在DB.stocks裡）的含息模式計算需要靠這個，不能只查DB.stocks。
+  const {pnlByTicker, divByTicker} = parseRealizedPnlSheet(parsed.realizedPnlRaw);
+  DB.realizedPnlByTicker = pnlByTicker;
+  DB.totalDivByTicker = divByTicker;
 
   saveDB();
   return {success:true, results, skipped:allSkipped, removed, error:null,
@@ -2024,6 +2045,9 @@ function applyTheme(theme){
   // v1.5：既有 localStorage 使用者（尚未重新匯入過）不會有這個新欄位，防呆補上空物件，
   // 避免 getTotalRealizedPnl()／getClosedStocksData() 讀到 undefined。
   DB.realizedPnlByTicker = DB.realizedPnlByTicker || {};
+  // v3.3：同上，既有使用者尚未重新匯入前不會有這個欄位，getTotalDivByTicker()
+  // 需要防呆。
+  DB.totalDivByTicker = DB.totalDivByTicker || {};
   if(result && result.migrated){
     if(result.success){
       showMigrateBanner('success','資料升級完成',2000);
