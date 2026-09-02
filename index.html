@@ -689,8 +689,16 @@ function getTotalDivByTicker(ticker){
 function getClosedStocksData(){
   const closed = typeof CLOSED_STOCKS !== 'undefined' ? CLOSED_STOCKS : [];
   // 合併 defaultData 的已結清 + localStorage 裡手動新增的已結清
-  const manualClosed = Object.values(DB.stocks).filter(s => s.shares === 0 && s.totalCost !== 0 && s.closed);
-  const all = [...closed, ...manualClosed.map(s => ({
+  // v3.3 修正：原本多一個 && s.closed 條件，但整份程式碼裡從來沒有任何地方
+  // 會把這個flag設成true（EventLog匯入把股票賣光時也不會設），導致這個篩選
+  // 永遠篩不到任何股票——透過EventLog賣光的股票（例如合庫金）完全不會出現在
+  // 已結清清單裡。shares===0 && totalCost!==0 本身就足夠準確地代表「曾經持有、
+  // 現在已出清」，不需要額外依賴這個從沒被設過的flag。
+  const manualClosed = Object.values(DB.stocks).filter(s => s.shares === 0 && s.totalCost !== 0);
+  const manualTickers = new Set(manualClosed.map(s=>s.ticker));
+  // 去重：同一檔如果DB.stocks（新鮮）跟靜態種子資料（可能過時）都有，只留DB.stocks那筆
+  const closedDeduped = closed.filter(c=>!manualTickers.has(c.ticker));
+  const all = [...closedDeduped, ...manualClosed.map(s => ({
     ticker: s.ticker, name: s.name, period: s.closedPeriod || '—',
     buyCost: -s.totalCost, sellIncome: s.sellIncome || 0,
     dividends: calcTotalDiv(s), note: ''
@@ -1891,11 +1899,25 @@ function importFromEventLog(fileBuffer){
 
   // v1.2：移除不在這次「持有中」名單內的既有股票（例如舊測試/種子資料殘留），
   // 讓匯入後 DB.stocks 精確等於 EventLog 目前持有的股票，不多不少。
+  // v3.4修正：原本直接delete，會讓「工具開始用之後才結清」的股票（例如合庫金）
+  // 從DB.stocks憑空消失，沒有機會進到已結清清單（見getClosedStocksData()的
+  // v3.3註解）。改成轉存一筆「已結清標記」，shares歸零、保留舊的成本/交易/
+  // 股利資料供顯示用——buyCost/sellIncome是用轉換當下的舊資料估算、不一定
+  // 精確，但已實現損益/累計股息這兩個關鍵數字都優先讀EventLog權威資料
+  // （DB.realizedPnlByTicker／DB.totalDivByTicker），這兩個估算值只在EventLog
+  // 沒有這檔資料時才會被用到，影響有限。
   const removed=[];
   Object.keys(DB.stocks).forEach(ticker=>{
     if(!heldTickers.includes(ticker)){
-      removed.push(ticker+' '+(DB.stocks[ticker].name||''));
-      delete DB.stocks[ticker];
+      const old=DB.stocks[ticker];
+      removed.push(ticker+' '+(old.name||''));
+      DB.stocks[ticker]={
+        ticker, name:old.name||ticker, exchange:'TSE', calcMode:'tx',
+        shares:0, avgCost:0, totalCost:old.totalCost||0, buyAvg:0,
+        brokers:[], transactions:old.transactions||[], dividends:old.dividends||[],
+        openingBalanceAdjustment:null, calcError:null, lastPrice:null, lastPriceTime:null,
+        closedPeriod:'—', sellIncome:0
+      };
     }
   });
 
@@ -1990,7 +2012,7 @@ function renderImportResult(result){
 
   const removedHtml = (result.removed && result.removed.length) ? `
     <div style="font-size:11px;color:var(--muted);margin-top:8px;">
-      ℹ️ 已移除 ${result.removed.length} 檔不在目前持有名單內的舊資料：${result.removed.join('、')}
+      ℹ️ ${result.removed.length} 檔不在目前持有名單內的股票已轉入已結清清單：${result.removed.join('、')}
     </div>` : '';
 
   const divHistHtml = result.dividendHistorySheetFound
