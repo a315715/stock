@@ -1,5 +1,5 @@
 {
-  "_updated": "2026-09-02T13:46:14+08:00",
+  "_updated": "2026-09-02T15:50:37+08:00",
   "_ok": 10,
   "_fail": 0,
   "_liveCount": 10,
@@ -10,25 +10,25 @@
       "prevClose": 256.0,
       "change": -5.0,
       "changePct": -1.95,
-      "updated": "2026-09-02T13:46:14+08:00",
+      "updated": "2026-09-02T15:50:37+08:00",
       "source": "live",
       "prevSource": "chartPreviousClose"
     },
     "2535": {
-      "price": 90.0,
+      "price": 89.5,
       "prevClose": 89.2,
-      "change": 0.8,
-      "changePct": 0.9,
-      "updated": "2026-09-02T13:46:14+08:00",
+      "change": 0.3,
+      "changePct": 0.34,
+      "updated": "2026-09-02T15:50:37+08:00",
       "source": "live",
       "prevSource": "chartPreviousClose"
     },
     "2890": {
-      "price": 42.2,
+      "price": 42.15,
       "prevClose": 41.5,
-      "change": 0.7,
-      "changePct": 1.69,
-      "updated": "2026-09-02T13:46:14+08:00",
+      "change": 0.65,
+      "changePct": 1.57,
+      "updated": "2026-09-02T15:50:37+08:00",
       "source": "live",
       "prevSource": "chartPreviousClose"
     },
@@ -37,34 +37,34 @@
       "prevClose": 145.0,
       "change": -1.5,
       "changePct": -1.03,
-      "updated": "2026-09-02T13:46:14+08:00",
+      "updated": "2026-09-02T15:50:37+08:00",
       "source": "live",
       "prevSource": "chartPreviousClose"
     },
     "6239": {
-      "price": 278.5,
+      "price": 278.0,
       "prevClose": 284.0,
-      "change": -5.5,
-      "changePct": -1.94,
-      "updated": "2026-09-02T13:46:14+08:00",
+      "change": -6.0,
+      "changePct": -2.11,
+      "updated": "2026-09-02T15:50:37+08:00",
       "source": "live",
       "prevSource": "chartPreviousClose"
     },
     "00878": {
-      "price": 33.69,
+      "price": 33.65,
       "prevClose": 33.76,
-      "change": -0.07,
-      "changePct": -0.21,
-      "updated": "2026-09-02T13:46:14+08:00",
+      "change": -0.11,
+      "changePct": -0.33,
+      "updated": "2026-09-02T15:50:37+08:00",
       "source": "live",
       "prevSource": "chartPreviousClose"
     },
     "00937B": {
-      "price": 14.24,
+      "price": 14.23,
       "prevClose": 14.25,
-      "change": -0.01,
-      "changePct": -0.07,
-      "updated": "2026-09-02T13:46:14+08:00",
+      "change": -0.02,
+      "changePct": -0.14,
+      "updated": "2026-09-02T15:50:37+08:00",
       "source": "live",
       "prevSource": "chartPreviousClose"
     },
@@ -73,7 +73,7 @@
       "prevClose": 25.6,
       "change": 0.7,
       "changePct": 2.73,
-      "updated": "2026-09-02T13:46:14+08:00",
+      "updated": "2026-09-02T15:50:37+08:00",
       "source": "live",
       "prevSource": "chartPreviousClose"
     },
@@ -82,7 +82,7 @@
       "prevClose": 132.5,
       "change": -6.5,
       "changePct": -4.91,
-      "updated": "2026-09-02T13:46:14+08:00",
+      "updated": "2026-09-02T15:50:37+08:00",
       "source": "live",
       "prevSource": "chartPreviousClose"
     },
@@ -91,7 +91,7 @@
       "prevClose": 54.85,
       "change": 0.25,
       "changePct": 0.46,
-      "updated": "2026-09-02T13:46:14+08:00",
+      "updated": "2026-09-02T15:50:37+08:00",
       "source": "live",
       "prevSource": "chartPreviousClose"
     }
