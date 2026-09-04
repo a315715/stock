@@ -686,23 +686,76 @@ function getTotalDivByTicker(ticker){
 // 注意：這裡回傳的加總只涵蓋「已出清（目前0股）」的股票，範圍比 getTotalRealizedPnl()
 // 窄——鴻海/力成這類目前還持有、但過去也部分賣出過的股票不在這個清單裡，
 // 見 getTotalRealizedPnl() 的說明。
+// v3.5：依交易明細計算「已結清」的交易損益與買入成本。
+// 交易計算模式下，股票全部賣出後 calcHolding() 會正確得到 shares=0、totalCost=0，
+// 因此不能再用 totalCost!==0 判斷是否已結清；同時也不能直接拿目前 totalCost 當歷史買入成本。
+// 這裡採用與 calcHolding() 相同的「滾動加權平均成本」邏輯，逐筆計算賣出時的已實現損益。
+// 注意：Transaction 目前 amount 只包含「股數×價格」，手續費/交易稅尚未由手動表單輸入，
+// 因此本函式不自行虛構 fee/tax；EventLog 有權威數字時仍優先使用 DB.realizedPnlByTicker。
+function calcClosedTradeResult(transactions, openingBalanceAdjustment){
+  const adj = openingBalanceAdjustment || null;
+  const txs = (transactions||[]).slice().sort((a,b)=>{
+    const byDate = a.date.localeCompare(b.date);
+    if(byDate!==0) return byDate;
+    return (a.createdAt||'').localeCompare(b.createdAt||'');
+  });
+
+  let shares = adj ? (adj.shares||0) : 0;
+  let cost = adj ? (adj.amount||0) : 0;
+  let buyCost = 0;
+  let realized = 0;
+
+  for(const t of txs){
+    if(t.type==='買'){
+      shares += t.shares||0;
+      cost += t.amount||0;
+      buyCost += t.amount||0;
+    } else if(t.type==='賣'){
+      const qty=t.shares||0;
+      const avgAtSale=shares>0 ? cost/shares : 0;
+      realized += (t.amount||0) - avgAtSale*qty;
+      shares -= qty;
+      cost -= avgAtSale*qty;
+    } else if(t.type==='配股'){
+      shares += t.shares||0;
+    } else if(t.type==='餘額調整'){
+      shares += t.shares||0;
+      cost += t.amount||0;
+      if((t.amount||0)>0) buyCost += t.amount||0;
+    }
+  }
+
+  return {
+    buyCost: Math.round(buyCost),
+    sellIncome: Math.round(realized + buyCost),
+    realizedPnl: Math.round(realized),
+    shares: Math.round(shares),
+    remainingCost: Math.round(cost)
+  };
+}
+
 function getClosedStocksData(){
   const closed = typeof CLOSED_STOCKS !== 'undefined' ? CLOSED_STOCKS : [];
-  // 合併 defaultData 的已結清 + localStorage 裡手動新增的已結清
-  // v3.3 修正：原本多一個 && s.closed 條件，但整份程式碼裡從來沒有任何地方
-  // 會把這個flag設成true（EventLog匯入把股票賣光時也不會設），導致這個篩選
-  // 永遠篩不到任何股票——透過EventLog賣光的股票（例如合庫金）完全不會出現在
-  // 已結清清單裡。shares===0 && totalCost!==0 本身就足夠準確地代表「曾經持有、
-  // 現在已出清」，不需要額外依賴這個從沒被設過的flag。
-  const manualClosed = Object.values(DB.stocks).filter(s => s.shares === 0 && s.totalCost !== 0);
+  // v3.5：已結清判斷改為「目前0股 + 曾有買/賣交易」，不再要求 totalCost!==0。
+  // 因為交易計算模式全部賣出後，totalCost 本來就會歸零。
+  const manualClosed = Object.values(DB.stocks).filter(s => {
+    const txs=s.transactions||[];
+    const hasTrade=txs.some(t=>t.type==='買'||t.type==='賣');
+    return s.shares === 0 && hasTrade;
+  });
   const manualTickers = new Set(manualClosed.map(s=>s.ticker));
   // 去重：同一檔如果DB.stocks（新鮮）跟靜態種子資料（可能過時）都有，只留DB.stocks那筆
   const closedDeduped = closed.filter(c=>!manualTickers.has(c.ticker));
-  const all = [...closedDeduped, ...manualClosed.map(s => ({
-    ticker: s.ticker, name: s.name, period: s.closedPeriod || '—',
-    buyCost: -s.totalCost, sellIncome: s.sellIncome || 0,
-    dividends: calcTotalDiv(s), note: ''
-  }))];
+  const all = [...closedDeduped, ...manualClosed.map(s => {
+    const trade=calcClosedTradeResult(s.transactions,s.openingBalanceAdjustment);
+    return {
+      ticker: s.ticker, name: s.name, period: s.closedPeriod || '—',
+      buyCost: trade.buyCost || 0,
+      sellIncome: trade.sellIncome || 0,
+      realizedPnl: trade.realizedPnl || 0,
+      dividends: calcTotalDiv(s), note: ''
+    };
+  })];
 
   const byTicker = DB.realizedPnlByTicker || {};
   all.forEach(c => {
@@ -716,7 +769,11 @@ function getClosedStocksData(){
     // 兩條路徑對「含不含息」的認定本來就對不起來。這次統一：capitalGain一律
     // 不含股息，含息模式時才額外加c.dividends，兩條路徑處理方式一致。
     const hasEventLogData = typeof byTicker[c.ticker] === 'number';
-    const capitalGain = hasEventLogData ? byTicker[c.ticker] : (c.sellIncome + c.buyCost);
+    // EventLog 有權威數字時優先使用；手動交易模式則使用 calcClosedTradeResult() 算出的交易損益。
+    // 舊版 fallback 的 sellIncome+buyCost 對「全部賣出後 totalCost=0」的 tx 股票會得到錯誤結果。
+    const capitalGain = hasEventLogData
+      ? byTicker[c.ticker]
+      : (typeof c.realizedPnl === 'number' ? c.realizedPnl : (c.sellIncome + c.buyCost));
     c.isApprox = hasEventLogData;
     c.pnl = returnMode === 'total' ? capitalGain + c.dividends : capitalGain;
   });
