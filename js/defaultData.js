@@ -306,4 +306,9 @@ const CLOSED_STOCKS = [
   {ticker:'00919', name:'群益台灣精選高息', period:'—', buyCost:0, sellIncome:0, dividends:0, note:'EventLog補列，無歷史成本資料'},
   {ticker:'2882',  name:'國泰金',           period:'—', buyCost:0, sellIncome:0, dividends:6400, note:'EventLog補列，無歷史成本資料'},
   {ticker:'5483',  name:'中美晶',           period:'—', buyCost:0, sellIncome:0, dividends:0, note:'EventLog補列，無歷史成本資料'},
+  // ↓ v3.6 新增：合庫金(5880) 2026/08結清。v3.4修正部署前就已被舊版匯入邏輯從
+  // DB.stocks刪掉，無法被轉存邏輯攔截，只能手動補回。buyCost/sellIncome由0828A
+  // EventLog逐筆交易加總重建、dividends取02_損益總表I欄；已實現損益本身工具一律
+  // 優先讀DB.realizedPnlByTicker，這兩個數字只在EventLog查不到時才會被用到。
+  {ticker:'5880',  name:'合庫金',           period:'2021~2026',  buyCost:-110951, sellIncome:114703, dividends:7037, note:'國泰轉統一'},
 ];
